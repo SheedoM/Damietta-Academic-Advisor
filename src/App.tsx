@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { generateRoadmap } from './lib/roadmapLogic'
-import { Student, Course, Major } from './lib/types'
+import { Student, Course, Major } from './types'
 import { COURSES } from './data/courses'
 
 function App() {

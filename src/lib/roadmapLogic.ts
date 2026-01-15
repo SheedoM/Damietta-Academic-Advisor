@@ -1,5 +1,5 @@
 import { COURSES } from '../data/courses';
-import { Student, Course, Bucket, BucketPriority, Term, Major } from './types';
+import { Student, Course, Bucket, BucketPriority, Term, Major } from '../types';
 
 // Helper: Check if a course is passed
 const isPassed = (student: Student, courseCode: string): boolean => {
