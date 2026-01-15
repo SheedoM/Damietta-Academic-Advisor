@@ -62,5 +62,38 @@ A smart graduation roadmap generator for students of the Faculty of Computing an
 - `src/types`: TypeScript interfaces for robust type safety.
 - `resources/`: Raw data files (PDFs, text catalogs).
 
+## 🧠 Application Logic: Allocation Algorithm
+
+The core of the Academic Advisor is a deterministic **Priority Bucket System** that simulates the decision-making process of a human academic advisor. It ensures students graduate in the minimum time possible while adhering to strict university bylaws.
+
+### 1. Bucket Prioritization
+Courses are categorized into "Buckets" which are filled in a specific order. The algorithm attempts to fill the student's schedule starting from the highest priority bucket:
+1.  **University Mandatory:** (Priority 1) - Courses required for all students (e.g., Human Rights).
+2.  **Basic Science Mandatory:** (Priority 2) - Core Math and Science foundations.
+3.  **Basic Science Elective:** (Priority 3) - Flexible Science credits (e.g., Physics vs Chemistry).
+4.  **College Mandatory:** (Priority 4) - Core computing courses required for all majors.
+5.  **College Elective:** (Priority 5) - Shared electives across the faculty.
+6.  **Major Mandatory:** (Priority 6) - Specific deep-dive courses for CS/IS/IT.
+7.  **Major Elective:** (Priority 7) - Specialized electives within the major.
+8.  **Projects & Training:** (Priority 8) - Graduation projects and summer training.
+
+### 2. Selection Process (Per Semester)
+For each simulated semester, the algorithm:
+1.  **Calculates Max Load:** Defaults to 18 Credit Hours (or 12 if GPA < 2.0).
+2.  **Filters Candidates:**
+    - Must be offered in the current semester (Fall/Spring).
+    - Student must NOT have already passed it.
+    - **Strict Prerequisite Check:** All immediate prerequisites must be passed.
+3.  **Fills Logic:**
+    - Iterates through Buckets 1 → 8.
+    - Adds eligible courses to the schedule until the `Max Load` is reached.
+    - Prioritizes "blocking" courses (prerequisites for future critical paths) implicitly by the bucket order.
+
+### 3. Multi-Semester Simulation (Upcoming)
+The system will run this selection process in a loop:
+- `Pass` the selected courses (update simulated student state).
+- Advance the semester (Fall → Spring → Fall...).
+- Repeat until all graduation requirements (Total Hours + Mandatory Courses) are met.
+
 ---
 *Built with ❤️ for Damietta University Students.*
