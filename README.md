@@ -2,7 +2,16 @@
 
 A smart graduation roadmap generator for students of the Faculty of Computing and Artificial Intelligence at Damietta University. This tool helps students plan their academic path by generating personalized course recommendations based on their major, GPA, and passed courses, adhering to university bylaws and prerequisites.
 
-## 🚀 Features
+## � Recent Incident Reports
+
+### Multi-Semester Roadmap Algorithm Failure (Jan 2026)
+We attempted to introduce a "Multi-Semester" feature to recommend courses for future terms. It failed due to conflicting optimization goals:
+- **Legacy Algo (Bucket-Priority):** Excellent for Graduation Requirements (Seniors), poor for Freshman balance.
+- **New Algo (Sequence-based):** Excellent for Freshmen, but "Too Greedy" and broke specific mandatory requirements for Seniors.
+**Resolution:** Reverted to Legacy Algorithm. Future plan is to implement a **Unified Weighted Score** system.
+[Read full analysis](incident_report.md)
+
+## �🚀 Features
 
 ### Current (MVP)
 - **Course Recommendation Engine:** Generates a course list for the *upcoming semester* based on a priority bucket system (University Mandatory, Basic Science, Major Requirements, etc.).
@@ -21,14 +30,16 @@ A smart graduation roadmap generator for students of the Faculty of Computing an
 
 ### 🚧 Phase 2: Recommendation Engine V2 (In Progress)
 - [ ] **Multi-Semester Planning:** Generate complete roadmap from current state to graduation (Priority #1).
-- [ ] **Visual Course Labeling:** Distinct UI indicators for course types (Mandatory, Elective, etc.).
+- [x] **Visual Course Labeling:** Distinct UI indicators for course types (Mandatory/Elective) with Color Coding.
+- [x] **Structured Logs:** Improved readability of generation logs.
 - [ ] **Advanced Prereqs:** Handling credit-hour threshold prerequisites (e.g., "Must pass 70 hours").
 - [ ] **Bug Fix:** Graduation Project not appearing (Investigate "999 prerequisites" / Credit Hour check).
 
 ### 🔮 Phase 3: Admin & Advanced Features
-- [ ] **Admin Dashboard:**
-    - Add/Edit Course details via UI.
-    - Manage "Available Courses" for upcoming semesters.
+- [ ] **Admin Dashboard (`feature/admin-ui` branch):**
+    - [/] Initial Routing & List View (Implemented on branch).
+    - [ ] Add/Edit Course details via UI.
+    - [ ] Manage "Available Courses" for upcoming semesters.
 - [ ] **Student Services:** Ticket submission system for Dean review (Priority #2).
 - [ ] **Dynamic Data:** Switch from static code definitions to Database/JSON driven content manageable by Admins.
 
@@ -89,12 +100,6 @@ For each simulated semester, the algorithm:
     - Iterates through Buckets 1 → 8.
     - Adds eligible courses to the schedule until the `Max Load` is reached.
     - Prioritizes "blocking" courses (prerequisites for future critical paths) implicitly by the bucket order.
-
-### 3. Multi-Semester Simulation (Upcoming)
-The system will run this selection process in a loop:
-- `Pass` the selected courses (update simulated student state).
-- Advance the semester (Fall → Spring → Fall...).
-- Repeat until all graduation requirements (Total Hours + Mandatory Courses) are met.
 
 ---
 *Built with ❤️ for Damietta University Students.*
