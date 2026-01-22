@@ -23,6 +23,7 @@ A smart graduation roadmap generator for students of the Faculty of Computing an
 - [ ] **Multi-Semester Planning:** Generate complete roadmap from current state to graduation (Priority #1).
 - [ ] **Visual Course Labeling:** Distinct UI indicators for course types (Mandatory, Elective, etc.).
 - [ ] **Advanced Prereqs:** Handling credit-hour threshold prerequisites (e.g., "Must pass 70 hours").
+- [ ] **Bug Fix:** Graduation Project not appearing (Investigate "999 prerequisites" / Credit Hour check).
 
 ### 🔮 Phase 3: Admin & Advanced Features
 - [ ] **Admin Dashboard:**
