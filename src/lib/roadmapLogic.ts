@@ -1,6 +1,11 @@
 import { COURSES } from '../data/courses';
 import { Student, Course, Bucket, BucketPriority, Term, Major } from '../types';
 
+export interface LogEntry {
+    type: 'info' | 'success' | 'warning' | 'error';
+    message: string;
+}
+
 // Helper: Check if a course is passed
 const isPassed = (student: Student, courseCode: string): boolean => {
     return student.passedCourses.includes(courseCode);
@@ -54,23 +59,18 @@ const BUCKET_DEFS = [
     { priority: BucketPriority.ProjectsTraining, name: "Projects & Training", required: 999 }, // No hard limit, specific courses
 ];
 
-export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap: Course[], log: string[] } => {
-    const roadmap: Course[] = [];
-    const log: string[] = [];
+export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap: (Course & { bucket: string })[], log: LogEntry[] } => {
+    const roadmap: (Course & { bucket: string })[] = [];
+    const log: LogEntry[] = [];
     let currentLoad = 0;
     const maxLoad = student.gpa < 2.0 ? 12 : 18;
 
-    log.push(`Starting generation for Major: ${student.major}, GPA: ${student.gpa}, Term: ${currentTerm}`);
-    log.push(`Max Load: ${maxLoad}`);
+    log.push({ type: 'info', message: `Starting generation for Major: ${student.major}, GPA: ${student.gpa}, Term: ${currentTerm}` });
+    log.push({ type: 'info', message: `Max Load: ${maxLoad}` });
 
     // 1. Organize courses into Buckets
     // We need to calculate how many hours the student has ALREADY passed in each bucket
     // to know if we should skip it.
-
-    // This is tricky because "Passed Hours" isn't just total, it's per bucket.
-    // We need to iterate passed courses and attribute them to buckets first?
-    // OR, we just check: "Do we have remaining required courses in this bucket?"
-    // For Electives, we explicitly check credits.
 
     // Let's build the Bucket Status map
     const bucketStatus = new Map<BucketPriority, { passed: number, required: number, courses: Course[] }>();
@@ -88,15 +88,6 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
         let priority: BucketPriority | null = null;
 
         // HEURISTIC to map Course to Bucket (Ideally this meta is in the course or a separate config)
-        // Based on Prompt description:
-        // P1: UNV...
-        // P2: BS... Mandatory
-        // P3: BS... Elective
-        // P4: College Mandatory (CS, IT, IS all Mandatory, or shared core?)
-        // This is vague in the data. "CS101" is "Mandatory" for all. likely College Mandatory.
-        // "CS311" is Mandatory for CS, Elective for IT.
-
-        // Let's refine the Mapping logic based on Code prefixes and Roles
         if (c.code.startsWith("UNV")) {
             priority = BucketPriority.UniversityMandatory;
         } else if (c.code.startsWith("BS")) {
@@ -105,14 +96,6 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
             priority = BucketPriority.ProjectsTraining;
         } else {
             // CS, IS, IT
-            // If Mandatory for ALL -> College Mandatory? 
-            // The prompt says "College Mandatory (Must complete 39 Credit Hours)"
-            // "Major Mandatory (Specific to CS...)"
-            // We need to differentiate College Mandatory vs Major Mandatory.
-            // Heuristic: If it is Mandatory for the student's major...
-            // Checking the data: "CS101" is Mandatory for CS, IS, IT. -> College Mandatory.
-            // "CS311" is Mandatory for CS only. -> Major Mandatory for CS.
-
             const isMandatoryForStudent = role === 'Mandatory';
             const isMandatoryForAll = c.roles.CS === 'Mandatory' && c.roles.IS === 'Mandatory' && c.roles.IT === 'Mandatory';
 
@@ -121,21 +104,6 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
             } else if (isMandatoryForStudent) {
                 priority = BucketPriority.MajorMandatory;
             } else {
-                // Elective for Student
-                // Check if Elective for All? Or just College vs Major Elective?
-                // Prompt: "College Elective (6 Hours)", "Major Elective (12 Hours)"
-                // This distinction is hard to infer purely from data without a list.
-                // BUT, usually "College Elective" is a pool available to all.
-                // "Major Elective" might be specific.
-                // For now, I will treat ALL Electives as candidates for "Major Elective" or "College Elective" combined 
-                // unless I can distinguish.
-                // Actually, let's look at "BS211": Elective for All. -> Maybe College Elective?
-                // "IT306": IT Mandatory, CS Elective. -> Major Elective for CS?
-
-                // Simplification: Treat all Student-Electives as "General Elective Pool" and fill specific buckets?
-                // Or iterate:
-                // If Code matches Student Major (e.g. CS student, CS course) -> Major Elective?
-                // If Code diff (CS student, IT course) -> College Elective?
                 if (c.code.startsWith(student.major)) {
                     priority = BucketPriority.MajorElective;
                 } else {
@@ -160,28 +128,16 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
         const bucket = bucketStatus.get(def.priority)!;
 
         // Check completion
-        // Note: Mandatory buckets usually require specific courses, not just hours.
-        // But we iterate all unpassed courses in them anyway.
-        // For Elective buckets, we check hours.
         const isElectiveBucket = def.name.includes("Elective");
         if (isElectiveBucket && bucket.passed >= def.required) {
-            log.push(`Skipping ${def.name}: Requirement met (${bucket.passed}/${def.required})`);
+            log.push({ type: 'info', message: `Skipping ${def.name}: Requirement met (${bucket.passed}/${def.required})` });
             continue;
         }
 
-        log.push(`Processing ${def.name}. Passed: ${bucket.passed}/${def.required}`);
+        log.push({ type: 'info', message: `Processing ${def.name}. Passed: ${bucket.passed}/${def.required}` });
 
         // Get Candidates: Courses in bucket, not passed
         let candidates = bucket.courses.filter(c => !isPassed(student, c.code));
-
-        // Filter by Availability (Term)
-        // "Open Now? Is C offered in the current semester?"
-        // The bylaws recommendation plan logic:
-        // If it's an Elective bucket, strictly prefer courses matching currentTerm.
-        // If it's Mandatory, we ALSO usually only can take it if it runs this term.
-        // Assumption: `c.term` indicates the ONLY term it runs? Or the recommended one?
-        // Usually in Egypt universities, courses are Fall (1) or Spring (2).
-        // So we strictly filter by `c.term === currentTerm`.
 
         // Exception: Training (Term 3)
         if (currentTerm !== 3 && def.priority === BucketPriority.ProjectsTraining) {
@@ -192,17 +148,9 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
 
         if (candidates.length === 0) continue;
 
-        // Prerequisite Check
-        // We shouldn't just skip; if prereq missing, try to add prereq.
-
-        // Sort Candidates? 
-        // For Electives: Pick those that match user preference or bylaws?
-        // We already filtered by Term.
-        // Maybe sort by code or credits?
-
         for (const course of candidates) {
             if (currentLoad + course.credits > maxLoad) {
-                log.push(`Skipping ${course.code}: Credits exceed limit.`);
+                log.push({ type: 'warning', message: `Skipping ${course.code}: Credits exceed limit.` });
                 continue;
             }
 
@@ -215,19 +163,17 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
                 // Available. Add it.
                 // For Electives -> Check if we need more hours.
                 if (isElectiveBucket) {
-                    // Re-check hour limit because we might have added courses in this loop
-                    // Wait, `bucket.passed` is static passed hours. We need `bucket.planned`.
-                    // Simplest: Check if (bucket.passed + planned_in_bucket) < def.required
                     const plannedInBucket = roadmap.filter(r => bucket.courses.includes(r)).reduce((sum, c) => sum + c.credits, 0);
                     if (bucket.passed + plannedInBucket >= def.required) continue;
                 }
 
-                roadmap.push(course);
+                // Add to roadmap WITH Bucket Name
+                roadmap.push({ ...course, bucket: def.name });
                 currentLoad += course.credits;
-                log.push(`Added ${course.code} (Bucket: ${def.name})`);
+                log.push({ type: 'success', message: `Added ${course.code}` });
             } else {
                 // Not met. Try to resolve prereqs?
-                log.push(`Course ${course.code} blocked by ${missing.join(', ')}`);
+                log.push({ type: 'warning', message: `Course ${course.code} blocked by ${missing.join(', ')}` });
 
                 // Attempt to find and add missing prereq
                 for (const missingCode of missing) {
@@ -246,12 +192,9 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
                         if (meta.met) {
                             // Add Prereq!
                             if (currentLoad + prereqCourse.credits <= maxLoad) {
-                                roadmap.push(prereqCourse);
+                                roadmap.push({ ...prereqCourse, bucket: "Prerequisite Catch-up" });
                                 currentLoad += prereqCourse.credits;
-                                log.push(`Added PREREQUISITE ${prereqCourse.code} for ${course.code}`);
-
-                                // NOTE: We do NOT add the original course `course` because we just added its prereq.
-                                // Unless concurrent allowed. Assuming No.
+                                log.push({ type: 'success', message: `Added PREREQUISITE ${prereqCourse.code} for ${course.code}` });
                             }
                         }
                     }

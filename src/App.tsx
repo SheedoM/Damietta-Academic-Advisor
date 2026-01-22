@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { generateRoadmap } from './lib/roadmapLogic'
+import { generateRoadmap, LogEntry } from './lib/roadmapLogic'
 import { Student, Course, Major } from './types'
 import { COURSES } from './data/courses'
 
@@ -12,8 +12,8 @@ function App() {
         passedHours: 0
     });
     const [currentTerm, setCurrentTerm] = useState<1 | 2 | 3>(1);
-    const [roadmap, setRoadmap] = useState<Course[]>([]);
-    const [logs, setLogs] = useState<string[]>([]);
+    const [roadmap, setRoadmap] = useState<(Course & { bucket: string })[]>([]);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
 
     const handleGenerate = () => {
         // Basic Parsing of JSON input if provided, else use manual valid fields
@@ -23,8 +23,6 @@ function App() {
             try {
                 const parsed = JSON.parse(jsonInput);
                 // Expecting { passedCourses: string[], major: ..., gpa: ... }
-                // Or if transcript format is different, adapt here.
-                // For now, assuming user pastes a JSON matching our Student shape partially
                 if (parsed.passedCourses) currentStudent.passedCourses = parsed.passedCourses;
                 if (parsed.gpa) currentStudent.gpa = parsed.gpa;
                 if (parsed.major) currentStudent.major = parsed.major;
@@ -46,6 +44,16 @@ function App() {
         const { roadmap: result, log } = generateRoadmap(currentStudent, currentTerm);
         setRoadmap(result);
         setLogs(log);
+    };
+
+    // Helper for log styling
+    const getLogStyle = (type: string) => {
+        switch (type) {
+            case 'success': return 'text-green-400';
+            case 'warning': return 'text-yellow-400';
+            case 'error': return 'text-red-400';
+            default: return 'text-gray-300'; // info
+        }
     };
 
     return (
@@ -134,8 +142,14 @@ function App() {
                             {roadmap.map(course => (
                                 <li key={course.code} className="border border-gray-200 rounded-md p-3 flex justify-between items-center bg-white hover:shadow-sm">
                                     <div>
-                                        <div className="font-medium text-gray-900">{course.code}: {course.name}</div>
-                                        <div className="text-xs text-gray-500">Prereqs: {course.prereqs.join(', ') || 'None'}</div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-medium text-gray-900">{course.code}: {course.name}</span>
+                                            {/* Bucket Label */}
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                                {course.bucket}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">Prereqs: {course.prereqs.join(', ') || 'None'}</div>
                                     </div>
                                     <div className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
                                         {course.credits} Cr
@@ -147,9 +161,15 @@ function App() {
 
                     <div className="mt-8 border-t pt-4">
                         <h3 className="text-sm font-medium text-gray-500 mb-2">Generation Logs</h3>
-                        <pre className="text-xs bg-gray-900 text-gray-100 p-4 rounded overflow-auto max-h-60">
-                            {logs.join('\n')}
-                        </pre>
+                        <div className="bg-gray-900 rounded-md p-4 overflow-auto max-h-60 font-mono text-xs space-y-1">
+                            {logs.map((entry, idx) => (
+                                <div key={idx} className={`flex gap-2 ${getLogStyle(entry.type)}`}>
+                                    <span className="opacity-50 select-none">[{entry.type.toUpperCase()}]</span>
+                                    <span>{entry.message}</span>
+                                </div>
+                            ))}
+                            {logs.length === 0 && <span className="text-gray-500">Waiting for generation...</span>}
+                        </div>
                     </div>
                 </div>
             </div>
