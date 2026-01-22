@@ -56,6 +56,16 @@ function App() {
         }
     };
 
+    // Helper for bucket styling
+    const getBucketStyle = (bucketName: string) => {
+        if (bucketName.includes("University")) return "bg-blue-100 text-blue-800 border-blue-200";
+        if (bucketName.includes("Basic Science")) return "bg-green-100 text-green-800 border-green-200";
+        if (bucketName.includes("College")) return "bg-purple-100 text-purple-800 border-purple-200";
+        if (bucketName.includes("Major")) return "bg-orange-100 text-orange-800 border-orange-200";
+        if (bucketName.includes("Projects")) return "bg-pink-100 text-pink-800 border-pink-200";
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-8">
             <header className="mb-8">
@@ -145,7 +155,7 @@ function App() {
                                         <div className="flex items-center gap-2">
                                             <span className="font-medium text-gray-900">{course.code}: {course.name}</span>
                                             {/* Bucket Label */}
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${getBucketStyle(course.bucket)}`}>
                                                 {course.bucket}
                                             </span>
                                         </div>
