@@ -95,10 +95,10 @@
   { "code": "TR301", "name": "CS Training", "credits": 3, "prereqs": ["HOURS_70"], "term": 3, "roles": { "CS": "Mandatory", "IS": "N/A", "IT": "N/A" } },
   { "code": "TR302", "name": "IT Training", "credits": 3, "prereqs": ["HOURS_70"], "term": 3, "roles": { "IT": "Mandatory", "CS": "N/A", "IS": "N/A" } },
   { "code": "TR303", "name": "IS Training", "credits": 3, "prereqs": ["HOURS_70"], "term": 3, "roles": { "IS": "Mandatory", "CS": "N/A", "IT": "N/A" } },
-  { "code": "PR401", "name": "CS Grad Project 1", "credits": 4, "prereqs": ["HOURS_102"], "term": 1, "roles": { "CS": "Mandatory", "IS": "N/A", "IT": "N/A" } },
-  { "code": "PR401_2", "name": "CS Grad Project 2", "credits": 4, "prereqs": ["PR401"], "term": 2, "roles": { "CS": "Mandatory", "IS": "N/A", "IT": "N/A" } },
-  { "code": "PR402", "name": "IT Grad Project 1", "credits": 4, "prereqs": ["HOURS_102"], "term": 1, "roles": { "IT": "Mandatory", "CS": "N/A", "IS": "N/A" } },
-  { "code": "PR402_2", "name": "IT Grad Project 2", "credits": 4, "prereqs": ["PR402"], "term": 2, "roles": { "IT": "Mandatory", "CS": "N/A", "IS": "N/A" } },
-  { "code": "PR403", "name": "IS Grad Project 1", "credits": 4, "prereqs": ["HOURS_102"], "term": 1, "roles": { "IS": "Mandatory", "CS": "N/A", "IT": "N/A" } },
-  { "code": "PR403_2", "name": "IS Grad Project 2", "credits": 4, "prereqs": ["PR403"], "term": 2, "roles": { "IS": "Mandatory", "CS": "N/A", "IT": "N/A" } }
+  { "code": "PR401", "name": "CS Grad Project 1", "credits": 2, "prereqs": ["HOURS_102"], "term": 1, "roles": { "CS": "Mandatory", "IS": "N/A", "IT": "N/A" } },
+  { "code": "PR401_2", "name": "CS Grad Project 2", "credits": 2, "prereqs": ["PR401"], "term": 2, "roles": { "CS": "Mandatory", "IS": "N/A", "IT": "N/A" } },
+  { "code": "PR402", "name": "IT Grad Project 1", "credits": 2, "prereqs": ["HOURS_102"], "term": 1, "roles": { "IT": "Mandatory", "CS": "N/A", "IS": "N/A" } },
+  { "code": "PR402_2", "name": "IT Grad Project 2", "credits": 2, "prereqs": ["PR402"], "term": 2, "roles": { "IT": "Mandatory", "CS": "N/A", "IS": "N/A" } },
+  { "code": "PR403", "name": "IS Grad Project 1", "credits": 2, "prereqs": ["HOURS_102"], "term": 1, "roles": { "IS": "Mandatory", "CS": "N/A", "IT": "N/A" } },
+  { "code": "PR403_2", "name": "IS Grad Project 2", "credits": 2, "prereqs": ["PR403"], "term": 2, "roles": { "IS": "Mandatory", "CS": "N/A", "IT": "N/A" } }
 ]
