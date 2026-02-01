@@ -86,6 +86,7 @@ function App() {
                                 value={student.major}
                                 onChange={e => setStudent({ ...student, major: e.target.value as Major })}
                             >
+                                <option value="General">General Program (Years 1-2)</option>
                                 <option value="CS">Computer Science</option>
                                 <option value="IS">Information Systems</option>
                                 <option value="IT">Information Technology</option>

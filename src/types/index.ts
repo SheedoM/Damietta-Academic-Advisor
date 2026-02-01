@@ -1,6 +1,6 @@
 export type Term = 1 | 2 | 3;
 export type RoleStatus = "Mandatory" | "Elective" | "N/A";
-export type Major = "CS" | "IS" | "IT";
+export type Major = "CS" | "IS" | "IT" | "General";
 
 export interface Course {
     code: string;

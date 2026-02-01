@@ -1,5 +1,5 @@
 import { COURSES } from '../data/courses';
-import { Student, Course, Bucket, BucketPriority, Term, Major } from '../types';
+import { Student, Course, BucketPriority, Term, Major, RoleStatus } from '../types';
 
 export interface LogEntry {
     type: 'info' | 'success' | 'warning' | 'error';
@@ -14,6 +14,38 @@ const isPassed = (student: Student, courseCode: string): boolean => {
 // Helper: Get course object
 const getCourse = (code: string): Course | undefined => {
     return COURSES.find(c => c.code === code);
+};
+
+// Helper: Get role for a major (with dynamic calculation for General students)
+const getRoleForMajor = (course: Course, major: Major): RoleStatus => {
+    // For specialized majors, just return the role from the course
+    if (major !== 'General') {
+        return course.roles[major];
+    }
+
+    // For General students: dynamically calculate based on all tracks
+    // A course is Mandatory for General if it's Mandatory for ALL tracks
+    const isMandatoryForAll =
+        course.roles.CS === 'Mandatory' &&
+        course.roles.IS === 'Mandatory' &&
+        course.roles.IT === 'Mandatory';
+
+    if (isMandatoryForAll) {
+        return 'Mandatory';
+    }
+
+    // A course is Elective for General if it's Elective for ALL tracks
+    const isElectiveForAll =
+        course.roles.CS === 'Elective' &&
+        course.roles.IS === 'Elective' &&
+        course.roles.IT === 'Elective';
+
+    if (isElectiveForAll) {
+        return 'Elective';
+    }
+
+    // Otherwise, it's a specialized course - not available to General
+    return 'N/A';
 };
 
 // Helper: Check prerequisites (Recursive-ish, but for now just immediate status)
@@ -37,16 +69,7 @@ const checkPrereqs = (student: Student, course: Course): { met: boolean; missing
 };
 
 // Helper: Get required hours for a bucket/major
-const getBucketRequirements = (bucketName: string, major: Major): number => {
-    // Hardcoded rules from prompt
-    // In a real app, this should be config-driven
-    return 0; // NOT USED directly, we use the priorities. 
-    // Wait, the prompt lists specific credit hours. 
-    // "Priority 1: University Mandatory Bucket (Must complete 10 Credit Hours)"
-    // "Priority 2: Basic Science Mandatory Bucket (Must complete 15 Credit Hours)"
-    // ...
-    // We need a map of Bucket -> RequiredCredits
-};
+// Note: Bucket requirements are defined in BUCKET_DEFS below
 
 const BUCKET_DEFS = [
     { priority: BucketPriority.UniversityMandatory, name: "University Mandatory", required: 10 },
@@ -82,7 +105,7 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
 
     // Categorize ALL courses
     COURSES.forEach(c => {
-        const role = c.roles[student.major];
+        const role = getRoleForMajor(c, student.major);
         if (role === 'N/A') return;
 
         let priority: BucketPriority | null = null;

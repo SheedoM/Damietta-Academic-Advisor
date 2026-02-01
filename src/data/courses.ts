@@ -1,4 +1,4 @@
-import { Course } from '../lib/types';
+import { Course } from '../types';
 
 export const COURSES: Course[] = [
     { "code": "UNV101", "name": "Societal Issues", "credits": 2, "prereqs": [], "term": 1, "roles": { "CS": "Mandatory", "IS": "Mandatory", "IT": "Mandatory" } },
