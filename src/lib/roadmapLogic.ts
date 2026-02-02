@@ -139,11 +139,18 @@ const BUCKET_DEFS = [
     { priority: BucketPriority.ProjectsTraining, name: "Projects & Training", required: 999 }, // No hard limit, specific courses
 ];
 
-export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap: Course[], log: string[] } => {
+export interface BucketStatus {
+    name: string;
+    passed: number;
+    planned: number;
+    required: number;
+}
+
+export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap: Course[], log: string[], bucketStatuses: BucketStatus[] } => {
     const roadmap: Course[] = [];
     const log: string[] = [];
     let currentLoad = 0;
-    const maxLoad = student.gpa < 2.0 ? 12 : 18;
+    const maxLoad = student.gpa < 2.0 ? 12 : 19;
 
     log.push(`Starting generation for Major: ${student.major}, GPA: ${student.gpa}, Term: ${currentTerm}`);
     log.push(`Max Load: ${maxLoad}`);
@@ -355,14 +362,21 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
 
     // Log bucket status summary
     log.push(`--- Bucket Summary ---`);
+    const bucketStatuses: BucketStatus[] = [];
     for (const def of BUCKET_DEFS) {
         const info = bucketStatus.get(def.priority)!;
         const planned = plannedHours.get(def.priority) || 0;
+        bucketStatuses.push({
+            name: def.name,
+            passed: info.passed,
+            planned: planned,
+            required: def.required
+        });
         if (info.passed > 0 || planned > 0) {
             log.push(`${def.name}: ${info.passed} passed + ${planned} planned = ${info.passed + planned}/${def.required}`);
         }
     }
 
-    return { roadmap, log };
+    return { roadmap, log, bucketStatuses };
 };
 
