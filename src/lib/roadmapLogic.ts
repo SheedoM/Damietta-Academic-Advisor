@@ -146,7 +146,9 @@ export interface BucketStatus {
     required: number;
 }
 
-export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap: Course[], log: string[], bucketStatuses: BucketStatus[] } => {
+export const generateRoadmap = (student: Student, currentTerm: Term, coursesInput?: Course[]): { roadmap: Course[], log: string[], bucketStatuses: BucketStatus[] } => {
+    // Use provided courses or fall back to default COURSES
+    const activeCourses = coursesInput ?? COURSES;
     const roadmap: Course[] = [];
     const log: string[] = [];
     let currentLoad = 0;
@@ -173,7 +175,7 @@ export const generateRoadmap = (student: Student, currentTerm: Term): { roadmap:
     });
 
     // Categorize ALL courses
-    COURSES.forEach(c => {
+    activeCourses.forEach(c => {
         const role = getRoleForMajor(c, student.major);
         if (role === 'N/A') return;
 

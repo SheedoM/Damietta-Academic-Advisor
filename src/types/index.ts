@@ -13,6 +13,7 @@ export interface Course {
         IS: RoleStatus;
         IT: RoleStatus;
     };
+    available?: boolean; // For admin toggle, defaults to true if undefined
 }
 
 export interface Student {
