@@ -8,7 +8,7 @@ import {
     getRequestById
 } from '../types/request';
 import { useCourses } from '../context/CourseContext';
-import { getCourseCategory, getCourseByCode, COURSES_DATABASE, getCourseRoleInMajor } from '../data/courses';
+import { getCourseByCode, COURSES_DATABASE, getCourseRoleInMajor } from '../data/courses';
 
 
 type ViewMode = 'input' | 'courses' | 'plan' | 'ticket' | 'submit' | 'tracking' | 'result';
@@ -99,49 +99,79 @@ function StudentPortal() {
     const [submittedRequest, setSubmittedRequest] = useState<StudentRequest | null>(null);
     const [lookupResult, setLookupResult] = useState<StudentRequest | null>(null);
 
+    // Helper: check if a course is in a specific category's course list (handles cross-listed courses)
+    const isCourseInCategory = (code: string, categoryKey: string): boolean => {
+        // @ts-ignore
+        const catData = COURSES_DATABASE[categoryKey];
+        if (!catData) return false;
+        return catData.courses.some((c: { course_code: string }) => c.course_code === code);
+    };
+
+    // Get the student's major category key
+    const majorCatKeyMap: Record<string, string> = { CS: 'cs_major_requirements', IT: 'it_major_requirements', IS: 'is_major_requirements' };
+    const myMajorCatKey = student.major !== 'General' ? majorCatKeyMap[student.major] : '';
+
     // Get remaining courses (not passed, available) — filtered by major
     const remainingCourses = useMemo(() => {
         return courses.filter(c => {
             if (c.available === false) return false;
             if (student.passedCourses.includes(c.code)) return false;
 
-            const cat = getCourseCategory(c.code);
-            // Always show training/projects
-            if (c.code.startsWith('TR') || c.code.startsWith('PR')) return true;
             // Always show shared categories
-            if (['university', 'basic_science', 'college'].includes(cat || '')) return true;
+            if (isCourseInCategory(c.code, 'university_requirements')) return true;
+            if (isCourseInCategory(c.code, 'basic_science_requirements')) return true;
+            if (isCourseInCategory(c.code, 'college_requirements')) return true;
 
             if (student.major === 'General') {
                 // General students: only level 1-2 courses
                 return (c.level || 1) <= 2;
             } else {
-                // Specialized: only courses relevant to their major
-                const majorCatMap: Record<string, CategoryType> = { CS: 'cs_major', IT: 'it_major', IS: 'is_major' };
-                const myMajorCat = majorCatMap[student.major];
-                // If it's a major category, it must be the student's major category
-                if (cat && ['cs_major', 'it_major', 'is_major'].includes(cat)) {
-                    return cat === myMajorCat;
-                }
-                return true;
+                // For specialized students: include if course is in their major's course list
+                if (myMajorCatKey && isCourseInCategory(c.code, myMajorCatKey)) return true;
+                // Exclude courses that are only in other major categories
+                return false;
             }
         });
     }, [courses, student.passedCourses, student.major]);
 
-    // Group remaining courses by category
+    // Group remaining courses by category (using student's major for cross-listed courses)
     const coursesByCategory = useMemo(() => {
         const grouped: Partial<Record<CategoryType, Course[]>> = {};
+        const categoryKeyOrder = ['university_requirements', 'basic_science_requirements', 'college_requirements'];
+        const catKeyToType: Record<string, CategoryType> = {
+            'university_requirements': 'university',
+            'basic_science_requirements': 'basic_science',
+            'college_requirements': 'college',
+            'cs_major_requirements': 'cs_major',
+            'it_major_requirements': 'it_major',
+            'is_major_requirements': 'is_major'
+        };
+
         remainingCourses.forEach(course => {
-            const cat = getCourseCategory(course.code) || 'college';
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat]!.push(course);
+            let assignedCat: CategoryType | null = null;
+            // Check shared categories first
+            for (const key of categoryKeyOrder) {
+                if (isCourseInCategory(course.code, key)) {
+                    assignedCat = catKeyToType[key];
+                    break;
+                }
+            }
+            // If not shared, assign to student's major category
+            if (!assignedCat && myMajorCatKey && isCourseInCategory(course.code, myMajorCatKey)) {
+                assignedCat = catKeyToType[myMajorCatKey];
+            }
+            if (!assignedCat) assignedCat = 'college'; // fallback
+            if (!grouped[assignedCat]) grouped[assignedCat] = [];
+            grouped[assignedCat]!.push(course);
         });
         return grouped;
     }, [remainingCourses]);
 
-    // Calculate remaining hours
+    // Calculate remaining hours until graduation (140 total required)
+    const GRADUATION_TOTAL_HOURS = 140;
     const remainingHours = useMemo(() => {
-        return remainingCourses.reduce((sum, c) => sum + c.credits, 0);
-    }, [remainingCourses]);
+        return Math.max(0, GRADUATION_TOTAL_HOURS - student.passedHours);
+    }, [student.passedHours]);
 
     // Toggle passed course
     const togglePassedCourse = (code: string) => {
@@ -468,7 +498,7 @@ function StudentPortal() {
                     <div className="flex justify-between items-center mb-4">
                         <div>
                             <h2 className="text-xl font-semibold text-gray-800">Remaining Courses</h2>
-                            <p className="text-sm text-gray-500">{remainingCourses.length} courses, {remainingHours} credit hours remaining</p>
+                            <p className="text-sm text-gray-500">{remainingCourses.length} courses remaining • {remainingHours} credit hours until graduation</p>
                         </div>
                         <button
                             onClick={handleGeneratePlan}
@@ -555,6 +585,30 @@ function StudentPortal() {
                                 <p className="text-2xl font-bold text-gray-400">0 / 57 Cr</p>
                                 <p className="text-sm text-gray-400 mt-2">Specialize in CS, IT, or IS to see major-specific courses</p>
                             </div>
+                        )}
+
+                        {/* Training & Graduation Project — always visible for specialized students */}
+                        {student.major !== 'General' && (
+                            <>
+                                <div className="border rounded-lg p-4 bg-purple-50/40 border-l-4 border-l-purple-400">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-800">Training</h3>
+                                            <p className="text-xs text-gray-500">Summer internship / field training</p>
+                                        </div>
+                                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">0 / 6 Cr</span>
+                                    </div>
+                                </div>
+                                <div className="border rounded-lg p-4 bg-pink-50/40 border-l-4 border-l-pink-400">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-800">Graduation Project</h3>
+                                            <p className="text-xs text-gray-500">Project 1 (3 Cr) + Project 2 (3 Cr)</p>
+                                        </div>
+                                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">0 / 6 Cr</span>
+                                    </div>
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>
@@ -685,47 +739,13 @@ function StudentPortal() {
                             </p>
                         </div>
 
-                        {/* Inline Ticket Section */}
-                        <div className="border rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-medium text-gray-700">Attach a Ticket (optional)</h3>
-                                <button
-                                    type="button"
-                                    onClick={() => setIncludeTicket(!includeTicket)}
-                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${includeTicket ? 'bg-orange-500' : 'bg-gray-200'}`}
-                                    role="switch"
-                                    aria-checked={includeTicket}
-                                >
-                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${includeTicket ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </button>
+                        {includeTicket && (
+                            <div className="bg-orange-50 rounded-lg p-4">
+                                <h3 className="font-medium text-orange-700 mb-2">Ticket Attached</h3>
+                                <p className="text-sm font-medium">{ticketSubject}</p>
+                                <p className="text-sm text-gray-600">{ticketMessage}</p>
                             </div>
-                            {includeTicket && (
-                                <div className="space-y-3 mt-3 pt-3 border-t">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                                        <input
-                                            type="text"
-                                            value={ticketSubject}
-                                            onChange={e => { setTicketSubject(e.target.value); setTicketErrors(prev => ({ ...prev, subject: '' })); }}
-                                            className={`w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 ${ticketErrors.subject ? 'border-red-400' : 'border-gray-300'}`}
-                                            placeholder="Brief description of your issue"
-                                        />
-                                        {ticketErrors.subject && <p className="text-xs text-red-600 mt-1">{ticketErrors.subject}</p>}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                                        <textarea
-                                            value={ticketMessage}
-                                            onChange={e => { setTicketMessage(e.target.value); setTicketErrors(prev => ({ ...prev, message: '' })); }}
-                                            rows={3}
-                                            className={`w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 ${ticketErrors.message ? 'border-red-400' : 'border-gray-300'}`}
-                                            placeholder="Describe your issue in detail..."
-                                        />
-                                        {ticketErrors.message && <p className="text-xs text-red-600 mt-1">{ticketErrors.message}</p>}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </div>
 
                     <button
