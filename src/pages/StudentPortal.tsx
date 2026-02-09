@@ -511,7 +511,8 @@ function StudentPortal() {
                     <div className="space-y-8">
                         {(Object.entries(coursesByCategory) as [CategoryType, Course[]][]).map(([category, catCourses]) => {
                             const progress = calculateCategoryProgress(category, student.passedCourses, courses);
-                            const totalPct = progress.totalRequired > 0 ? Math.min(100, Math.round((progress.totalCompleted / progress.totalRequired) * 100)) : 100;
+                            const mandatoryPct = progress.mandatoryRequired > 0 ? Math.min(100, Math.round((progress.mandatoryCompleted / progress.mandatoryRequired) * 100)) : 100;
+                            const electivePct = progress.electiveRequired > 0 ? Math.min(100, Math.round((progress.electiveCompleted / progress.electiveRequired) * 100)) : 100;
                             return (
                                 <div key={category}>
                                     {/* Category header */}
@@ -521,38 +522,43 @@ function StudentPortal() {
                                                 ? `${student.major} Major`
                                                 : CATEGORY_NAMES[category]}
                                         </h3>
-                                        <span className="text-xs text-gray-500 font-medium">
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${progress.totalCompleted >= progress.totalRequired ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
                                             {progress.totalCompleted} / {progress.totalRequired} Cr
                                         </span>
                                     </div>
-                                    {/* Single thin progress bar */}
-                                    <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1.5">
-                                        <div
-                                            className={`h-full rounded-full transition-all duration-500 ${totalPct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
-                                            style={{ width: `${totalPct}%` }}
-                                        />
-                                    </div>
-                                    {/* Mandatory / Elective summary */}
-                                    <div className="flex gap-4 text-xs text-gray-400 mb-3">
-                                        <span>Mandatory {progress.mandatoryCompleted}/{progress.mandatoryRequired}</span>
+                                    {/* Dual progress bars */}
+                                    <div className="space-y-1 mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-slate-500 w-[72px] shrink-0">Mandatory</span>
+                                            <div className="flex-1 bg-gray-100 rounded-full h-[6px] overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all duration-500 ${mandatoryPct >= 100 ? 'bg-emerald-400' : 'bg-slate-400'}`} style={{ width: `${mandatoryPct}%` }} />
+                                            </div>
+                                            <span className="text-[11px] text-slate-400 w-12 text-right">{progress.mandatoryCompleted}/{progress.mandatoryRequired}</span>
+                                        </div>
                                         {progress.electiveRequired > 0 && (
-                                            <span>Elective {progress.electiveCompleted}/{progress.electiveRequired}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] text-slate-500 w-[72px] shrink-0">Elective</span>
+                                                <div className="flex-1 bg-gray-100 rounded-full h-[6px] overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all duration-500 ${electivePct >= 100 ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${electivePct}%` }} />
+                                                </div>
+                                                <span className="text-[11px] text-slate-400 w-12 text-right">{progress.electiveCompleted}/{progress.electiveRequired}</span>
+                                            </div>
                                         )}
                                     </div>
                                     {/* Course cards */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                         {catCourses.map(course => {
                                             const role = getCourseRoleInMajor(course.code, student.major !== 'General' ? student.major : 'CS');
+                                            const isMandatory = role === 'Mandatory';
                                             return (
-                                                <div key={course.code} className="border border-gray-200 rounded-lg px-3 py-2.5 hover:border-gray-300 hover:shadow-sm transition bg-white">
+                                                <div key={course.code} className={`border border-gray-200 rounded-lg px-3 py-2.5 hover:shadow-sm transition bg-white border-l-2 ${isMandatory ? 'border-l-slate-400' : 'border-l-cyan-300'}`}>
                                                     <div className="flex justify-between items-center mb-0.5">
-                                                        <span className="font-medium text-sm text-gray-900">{course.code}</span>
+                                                        <span className="font-medium text-sm text-gray-800">{course.code}</span>
                                                         <span className="text-xs text-gray-400">{course.credits} Cr</span>
                                                     </div>
-                                                    <p className="text-xs text-gray-600 truncate" title={course.name}>{course.name}</p>
+                                                    <p className="text-xs text-gray-500 truncate" title={course.name}>{course.name}</p>
                                                     <div className="flex items-center gap-2 mt-1">
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${role === 'Mandatory' ? 'bg-gray-100 text-gray-600' : 'bg-gray-50 text-gray-400'
-                                                            }`}>{role}</span>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isMandatory ? 'bg-slate-100 text-slate-500' : 'bg-cyan-50 text-cyan-600'}`}>{role}</span>
                                                         <span className="text-[10px] text-gray-300">L{course.level} · T{course.term}</span>
                                                     </div>
                                                 </div>
@@ -573,22 +579,22 @@ function StudentPortal() {
                         )}
 
                         {/* Training & Graduation Project — always visible */}
-                        <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="border border-gray-200 rounded-lg p-4 border-l-2 border-l-violet-300">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h3 className="text-base font-semibold text-gray-800">Training</h3>
+                                    <h3 className="text-sm font-semibold text-gray-800">Training</h3>
                                     <p className="text-xs text-gray-400">Summer internship / field training</p>
                                 </div>
-                                <span className="text-xs text-gray-500 font-medium">0 / 3 Cr</span>
+                                <span className="text-xs font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">0 / 3 Cr</span>
                             </div>
                         </div>
-                        <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="border border-gray-200 rounded-lg p-4 border-l-2 border-l-violet-300">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h3 className="text-base font-semibold text-gray-800">Graduation Project</h3>
+                                    <h3 className="text-sm font-semibold text-gray-800">Graduation Project</h3>
                                     <p className="text-xs text-gray-400">Project 1 (3 Cr) + Project 2 (3 Cr)</p>
                                 </div>
-                                <span className="text-xs text-gray-500 font-medium">0 / 6 Cr</span>
+                                <span className="text-xs font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">0 / 6 Cr</span>
                             </div>
                         </div>
                     </div>
