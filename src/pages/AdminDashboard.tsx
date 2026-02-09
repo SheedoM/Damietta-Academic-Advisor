@@ -714,8 +714,9 @@ function AdminDashboard() {
                                                 onChange={e => setNewCourse({ ...newCourse, term: parseInt(e.target.value) as Term })}
                                                 className="w-full border rounded-md px-3 py-2"
                                             >
-                                                <option value={1}>Fall</option>
-                                                <option value={2}>Spring</option>
+                                                <option value={1}>Term 1</option>
+                                                <option value={2}>Term 2</option>
+                                                <option value={3}>Summer</option>
                                             </select>
                                         </div>
                                     </div>
@@ -825,8 +826,9 @@ function AdminDashboard() {
                                                 onChange={e => setEditingCourse({ ...editingCourse, term: parseInt(e.target.value) as Term })}
                                                 className="w-full border rounded-md px-3 py-2"
                                             >
-                                                <option value={1}>Fall</option>
-                                                <option value={2}>Spring</option>
+                                                <option value={1}>Term 1</option>
+                                                <option value={2}>Term 2</option>
+                                                <option value={3}>Summer</option>
                                             </select>
                                         </div>
                                     </div>

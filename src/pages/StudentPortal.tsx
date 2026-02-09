@@ -14,7 +14,7 @@ import { getCourseCategory, getCourseByCode, COURSES_DATABASE, getCourseRoleInMa
 type ViewMode = 'input' | 'courses' | 'plan' | 'ticket' | 'submit' | 'tracking' | 'result';
 
 // Helper to calculate progress with mandatory/elective breakdown
-const calculateCategoryProgress = (category: CategoryType, passedCourses: string[], courses: Course[], major: Major) => {
+const calculateCategoryProgress = (category: CategoryType, passedCourses: string[], courses: Course[]) => {
     const categoryKeyMap: Record<CategoryType, string> = {
         'university': 'university_requirements',
         'basic_science': 'basic_science_requirements',
@@ -36,11 +36,14 @@ const calculateCategoryProgress = (category: CategoryType, passedCourses: string
     let mandatoryCompleted = 0;
     let electiveCompleted = 0;
 
+    // Check directly against the category's course list to handle cross-listed courses
+    // (e.g., CS437 is in both cs_major and is_major — getCourseCategory would only return the first match)
+    const categoryCourses = catData.courses as { course_code: string; requirement_type: string }[];
     passedCourses.forEach(code => {
         const course = courses.find(c => c.code === code);
-        if (course && getCourseCategory(code) === category) {
-            const role = getCourseRoleInMajor(code, major !== 'General' ? major : 'CS');
-            if (role === 'Elective') {
+        const catCourse = categoryCourses.find(c => c.course_code === code);
+        if (course && catCourse) {
+            if (catCourse.requirement_type === 'Elective') {
                 electiveCompleted += course.credits;
             } else {
                 mandatoryCompleted += course.credits;
@@ -195,6 +198,9 @@ function StudentPortal() {
 
     // Submit request
     const handleSubmitRequest = () => {
+        // Validate ticket fields if ticket is toggled on
+        if (includeTicket && !validateTicketForm()) return;
+
         const request: StudentRequest = {
             id: generateTrackingNumber(),
             studentId,
@@ -476,7 +482,7 @@ function StudentPortal() {
                         {(Object.entries(coursesByCategory) as [CategoryType, Course[]][]).map(([category, catCourses]) => (
                             <div key={category}>
                                 {(() => {
-                                    const progress = calculateCategoryProgress(category, student.passedCourses, courses, student.major);
+                                    const progress = calculateCategoryProgress(category, student.passedCourses, courses);
                                     const mandatoryPct = progress.mandatoryRequired > 0 ? Math.min(100, Math.round((progress.mandatoryCompleted / progress.mandatoryRequired) * 100)) : 100;
                                     const electivePct = progress.electiveRequired > 0 ? Math.min(100, Math.round((progress.electiveCompleted / progress.electiveRequired) * 100)) : 100;
                                     return (
@@ -679,13 +685,47 @@ function StudentPortal() {
                             </p>
                         </div>
 
-                        {includeTicket && (
-                            <div className="bg-orange-50 rounded-lg p-4">
-                                <h3 className="font-medium text-orange-700 mb-2">Ticket Attached</h3>
-                                <p className="text-sm font-medium">{ticketSubject}</p>
-                                <p className="text-sm text-gray-600">{ticketMessage}</p>
+                        {/* Inline Ticket Section */}
+                        <div className="border rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-medium text-gray-700">Attach a Ticket (optional)</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setIncludeTicket(!includeTicket)}
+                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${includeTicket ? 'bg-orange-500' : 'bg-gray-200'}`}
+                                    role="switch"
+                                    aria-checked={includeTicket}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${includeTicket ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
                             </div>
-                        )}
+                            {includeTicket && (
+                                <div className="space-y-3 mt-3 pt-3 border-t">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                                        <input
+                                            type="text"
+                                            value={ticketSubject}
+                                            onChange={e => { setTicketSubject(e.target.value); setTicketErrors(prev => ({ ...prev, subject: '' })); }}
+                                            className={`w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 ${ticketErrors.subject ? 'border-red-400' : 'border-gray-300'}`}
+                                            placeholder="Brief description of your issue"
+                                        />
+                                        {ticketErrors.subject && <p className="text-xs text-red-600 mt-1">{ticketErrors.subject}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                                        <textarea
+                                            value={ticketMessage}
+                                            onChange={e => { setTicketMessage(e.target.value); setTicketErrors(prev => ({ ...prev, message: '' })); }}
+                                            rows={3}
+                                            className={`w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 ${ticketErrors.message ? 'border-red-400' : 'border-gray-300'}`}
+                                            placeholder="Describe your issue in detail..."
+                                        />
+                                        {ticketErrors.message && <p className="text-xs text-red-600 mt-1">{ticketErrors.message}</p>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <button
