@@ -495,10 +495,10 @@ function StudentPortal() {
             {/* Step 2: View Remaining Courses */}
             {viewMode === 'courses' && (
                 <div className="bg-white rounded-xl shadow-lg p-6">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex justify-between items-center mb-6">
                         <div>
                             <h2 className="text-xl font-semibold text-gray-800">Remaining Courses</h2>
-                            <p className="text-sm text-gray-500">{remainingCourses.length} courses remaining • {remainingHours} credit hours until graduation</p>
+                            <p className="text-sm text-gray-500">{remainingHours} credit hours until graduation</p>
                         </div>
                         <button
                             onClick={handleGeneratePlan}
@@ -508,108 +508,89 @@ function StudentPortal() {
                         </button>
                     </div>
 
-                    <div className="space-y-6">
-                        {(Object.entries(coursesByCategory) as [CategoryType, Course[]][]).map(([category, catCourses]) => (
-                            <div key={category}>
-                                {(() => {
-                                    const progress = calculateCategoryProgress(category, student.passedCourses, courses);
-                                    const mandatoryPct = progress.mandatoryRequired > 0 ? Math.min(100, Math.round((progress.mandatoryCompleted / progress.mandatoryRequired) * 100)) : 100;
-                                    const electivePct = progress.electiveRequired > 0 ? Math.min(100, Math.round((progress.electiveCompleted / progress.electiveRequired) * 100)) : 100;
-                                    return (
-                                        <div className="mb-3 pb-2">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <h3 className="text-lg font-semibold text-gray-800">
-                                                    {student.major !== 'General' && ['cs_major', 'it_major', 'is_major'].includes(category)
-                                                        ? `${student.major} Major`
-                                                        : CATEGORY_NAMES[category]}
-                                                </h3>
-                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${progress.totalCompleted >= progress.totalRequired ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                    {progress.totalCompleted} / {progress.totalRequired} Cr
-                                                </span>
-                                            </div>
-                                            {/* Progress bars */}
-                                            <div className="space-y-1.5">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium text-amber-700 w-20 shrink-0">Mandatory</span>
-                                                    <div className="flex-1 bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                                                        <div className={`h-full rounded-full transition-all duration-500 ${mandatoryPct >= 100 ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${mandatoryPct}%` }} />
+                    <div className="space-y-8">
+                        {(Object.entries(coursesByCategory) as [CategoryType, Course[]][]).map(([category, catCourses]) => {
+                            const progress = calculateCategoryProgress(category, student.passedCourses, courses);
+                            const totalPct = progress.totalRequired > 0 ? Math.min(100, Math.round((progress.totalCompleted / progress.totalRequired) * 100)) : 100;
+                            return (
+                                <div key={category}>
+                                    {/* Category header */}
+                                    <div className="flex items-center justify-between mb-1">
+                                        <h3 className="text-base font-semibold text-gray-800">
+                                            {student.major !== 'General' && ['cs_major', 'it_major', 'is_major'].includes(category)
+                                                ? `${student.major} Major`
+                                                : CATEGORY_NAMES[category]}
+                                        </h3>
+                                        <span className="text-xs text-gray-500 font-medium">
+                                            {progress.totalCompleted} / {progress.totalRequired} Cr
+                                        </span>
+                                    </div>
+                                    {/* Single thin progress bar */}
+                                    <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1.5">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-500 ${totalPct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                            style={{ width: `${totalPct}%` }}
+                                        />
+                                    </div>
+                                    {/* Mandatory / Elective summary */}
+                                    <div className="flex gap-4 text-xs text-gray-400 mb-3">
+                                        <span>Mandatory {progress.mandatoryCompleted}/{progress.mandatoryRequired}</span>
+                                        {progress.electiveRequired > 0 && (
+                                            <span>Elective {progress.electiveCompleted}/{progress.electiveRequired}</span>
+                                        )}
+                                    </div>
+                                    {/* Course cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {catCourses.map(course => {
+                                            const role = getCourseRoleInMajor(course.code, student.major !== 'General' ? student.major : 'CS');
+                                            return (
+                                                <div key={course.code} className="border border-gray-200 rounded-lg px-3 py-2.5 hover:border-gray-300 hover:shadow-sm transition bg-white">
+                                                    <div className="flex justify-between items-center mb-0.5">
+                                                        <span className="font-medium text-sm text-gray-900">{course.code}</span>
+                                                        <span className="text-xs text-gray-400">{course.credits} Cr</span>
                                                     </div>
-                                                    <span className={`text-xs font-semibold w-16 text-right ${progress.mandatoryCompleted >= progress.mandatoryRequired ? 'text-green-600' : 'text-amber-700'}`}>
-                                                        {progress.mandatoryCompleted}/{progress.mandatoryRequired}
-                                                    </span>
+                                                    <p className="text-xs text-gray-600 truncate" title={course.name}>{course.name}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${role === 'Mandatory' ? 'bg-gray-100 text-gray-600' : 'bg-gray-50 text-gray-400'
+                                                            }`}>{role}</span>
+                                                        <span className="text-[10px] text-gray-300">L{course.level} · T{course.term}</span>
+                                                    </div>
                                                 </div>
-                                                {progress.electiveRequired > 0 && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-medium text-teal-700 w-20 shrink-0">Elective</span>
-                                                        <div className="flex-1 bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                                                            <div className={`h-full rounded-full transition-all duration-500 ${electivePct >= 100 ? 'bg-green-500' : 'bg-teal-500'}`} style={{ width: `${electivePct}%` }} />
-                                                        </div>
-                                                        <span className={`text-xs font-semibold w-16 text-right ${progress.electiveCompleted >= progress.electiveRequired ? 'text-green-600' : 'text-teal-700'}`}>
-                                                            {progress.electiveCompleted}/{progress.electiveRequired}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                    {catCourses.map(course => {
-                                        const role = getCourseRoleInMajor(course.code, student.major !== 'General' ? student.major : 'CS');
-                                        return (
-                                            <div key={course.code} className={`border rounded-lg p-3 hover:shadow-sm transition ${role === 'Mandatory' ? 'border-l-4 border-l-amber-400 bg-amber-50/40' : role === 'Elective' ? 'border-l-4 border-l-teal-400 bg-teal-50/40' : 'bg-gray-50'}`}>
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <span className="font-medium text-gray-900">{course.code}</span>
-                                                        <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-semibold ${role === 'Mandatory' ? 'bg-amber-100 text-amber-700' :
-                                                            role === 'Elective' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'
-                                                            }`}>
-                                                            {role}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-gray-600">{course.credits} Cr</span>
-                                                </div>
-                                                <p className="text-sm text-gray-600 truncate" title={course.name}>{course.name}</p>
-                                                <p className="text-xs text-gray-400">Level {course.level} • Term {course.term}</p>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
 
-                        {/* General students: show Major placeholder AFTER other categories */}
+                        {/* General students: show Major placeholder after other categories */}
                         {student.major === 'General' && (
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
-                                <h3 className="text-lg font-medium text-gray-500 mb-1">Major Requirements</h3>
-                                <p className="text-2xl font-bold text-gray-400">0 / 57 Cr</p>
-                                <p className="text-sm text-gray-400 mt-2">Specialize in CS, IT, or IS to see major-specific courses</p>
+                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                <h3 className="text-base font-medium text-gray-400 mb-1">Major Requirements</h3>
+                                <p className="text-lg font-bold text-gray-300">0 / 57 Cr</p>
+                                <p className="text-xs text-gray-400 mt-1">Specialize in CS, IT, or IS to see major-specific courses</p>
                             </div>
                         )}
 
-                        {/* Training & Graduation Project — always visible for specialized students */}
-                        {student.major !== 'General' && (
-                            <>
-                                <div className="border rounded-lg p-4 bg-purple-50/40 border-l-4 border-l-purple-400">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-800">Training</h3>
-                                            <p className="text-xs text-gray-500">Summer internship / field training</p>
-                                        </div>
-                                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">0 / 6 Cr</span>
-                                    </div>
+                        {/* Training & Graduation Project — always visible */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-base font-semibold text-gray-800">Training</h3>
+                                    <p className="text-xs text-gray-400">Summer internship / field training</p>
                                 </div>
-                                <div className="border rounded-lg p-4 bg-pink-50/40 border-l-4 border-l-pink-400">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-800">Graduation Project</h3>
-                                            <p className="text-xs text-gray-500">Project 1 (3 Cr) + Project 2 (3 Cr)</p>
-                                        </div>
-                                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">0 / 6 Cr</span>
-                                    </div>
+                                <span className="text-xs text-gray-500 font-medium">0 / 3 Cr</span>
+                            </div>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-base font-semibold text-gray-800">Graduation Project</h3>
+                                    <p className="text-xs text-gray-400">Project 1 (3 Cr) + Project 2 (3 Cr)</p>
                                 </div>
-                            </>
-                        )}
+                                <span className="text-xs text-gray-500 font-medium">0 / 6 Cr</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
