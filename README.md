@@ -1,105 +1,136 @@
-# Damietta University Academic Advisor
+# Damietta University — Academic Advisor
 
-A smart graduation roadmap generator for students of the Faculty of Computing and Artificial Intelligence at Damietta University. This tool helps students plan their academic path by generating personalized course recommendations based on their major, GPA, and passed courses, adhering to university bylaws and prerequisites.
+A graduation planning tool for students of the **Faculty of Computing and Artificial Intelligence** at Damietta University. It generates personalized semester-by-semester course recommendations based on the student's major, GPA, passed courses, and university bylaws.
 
-## � Recent Incident Reports
+## Features
 
-### Multi-Semester Roadmap Algorithm Failure (Jan 2026)
-We attempted to introduce a "Multi-Semester" feature to recommend courses for future terms. It failed due to conflicting optimization goals:
-- **Legacy Algo (Bucket-Priority):** Excellent for Graduation Requirements (Seniors), poor for Freshman balance.
-- **New Algo (Sequence-based):** Excellent for Freshmen, but "Too Greedy" and broke specific mandatory requirements for Seniors.
-**Resolution:** Reverted to Legacy Algorithm. Future plan is to implement a **Unified Weighted Score** system.
-[Read full analysis](incident_report.md)
+### Student Portal
+- **Remaining Courses View** — shows all outstanding courses grouped by category (University, Basic Science, College, Major) with per-category progress bars tracking mandatory and elective completion.
+- **Roadmap Generator** — produces a recommended course plan for the upcoming semester using a priority-based scoring algorithm that respects prerequisites, GPA-based credit limits, and term availability.
+- **Training & Project Tracking** — placeholder sections for field training (3 Cr) and graduation project (6 Cr) visible to all students.
+- **Ticket Submission** — students can attach a support ticket when submitting their plan for advisor review.
+- **Request Tracking** — look up the status of a previously submitted request by tracking number.
+- **Transcript Input** — accepts passed courses via JSON array for quick bulk entry.
 
-## �🚀 Features
+### Admin Dashboard
+- **Course Management** — view, add, edit, and toggle availability of all 119 courses across 6 categories. Courses can be filtered and searched.
+- **Request Review** — view and respond to student-submitted plans and tickets.
+- **Add/Edit Course** — full form with code, name, credits, term (Term 1 / Term 2 / Summer), level, category, prerequisites, and requirement type.
+- **Availability Toggle** — disable courses from appearing in student recommendations without deleting them.
 
-### Current (MVP)
-- **Course Recommendation Engine:** Generates a course list for the *upcoming semester* based on a priority bucket system (University Mandatory, Basic Science, Major Requirements, etc.).
-- **Prerequisite Validation:** Ensures all strict prerequisites are met before recommending a course.
-- **GPA Load Management:** Adjusts the maximum credit hour load based on the student's GPA (< 2.0 vs ≥ 2.0).
-- **Major Support:** Tailored logic for Computer Science (CS), Information Systems (IS), and Information Technology (IT).
+### Course Engine
+- **119 unique courses** across 6 categories: University Requirements, Basic Science, College Requirements, CS Major, IT Major, IS Major.
+- **Cross-listed course support** — courses shared across majors (e.g., CS437 in both CS and IS) are correctly counted and displayed for each major.
+- **Prerequisite validation** — strict prerequisite checks before any course is recommended.
+- **GPA-based load management** — 18 Cr cap for GPA ≥ 2.0, 12 Cr for GPA < 2.0.
 
-## 📅 Project Phases & Progress
+## Tech Stack
 
-### ✅ Phase 1: Foundation & Setup (Completed)
-- [x] **Project Initialization:** Structure set up with React, TypeScript, and Vite.
-- [x] **Repository Setup:** GitHub repo created and organized.
-- [x] **Basic Logic Engine:** Implemented Priority Priority Bucket System for course selection.
-- [x] **Prerequisite Check:** Logic to handle strict course dependencies.
-- [x] **Basic UI:** Input form for student data and simple result display.
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 18 + TypeScript |
+| Build | Vite |
+| Styling | Tailwind CSS |
+| Routing | React Router v6 |
+| State | React Context + Hooks |
+| Storage | localStorage (client-side) |
+| Data | JSON course catalog (`courses.json`) |
 
-### 🚧 Phase 2: Recommendation Engine V2 (In Progress)
-- [ ] **Multi-Semester Planning:** Generate complete roadmap from current state to graduation (Priority #1).
-- [x] **Visual Course Labeling:** Distinct UI indicators for course types (Mandatory/Elective) with Color Coding.
-- [x] **Structured Logs:** Improved readability of generation logs.
-- [ ] **Advanced Prereqs:** Handling credit-hour threshold prerequisites (e.g., "Must pass 70 hours").
-- [ ] **Bug Fix:** Graduation Project not appearing (Investigate "999 prerequisites" / Credit Hour check).
+## Getting Started
 
-### 🔮 Phase 3: Admin & Advanced Features
-- [ ] **Admin Dashboard (`feature/admin-ui` branch):**
-    - [/] Initial Routing & List View (Implemented on branch).
-    - [ ] Add/Edit Course details via UI.
-    - [ ] Manage "Available Courses" for upcoming semesters.
-- [ ] **Student Services:** Ticket submission system for Dean review (Priority #2).
-- [ ] **Dynamic Data:** Switch from static code definitions to Database/JSON driven content manageable by Admins.
+```bash
+# Clone
+git clone https://github.com/SheedoM/Damietta-Academic-Advisor.git
+cd Damietta-Academic-Advisor
 
-### 🤖 Phase 4: AI Integration
-- [ ] **MCP Server:** Add Model Context Protocol support.
-- [ ] **Interactive Assistant:** LLM-powered bot to explain recommendations and answer bylaws questions (Priority #3).
+# Install
+npm install
 
-## 🛠️ Tech Stack
-- **Frontend:** React, TypeScript, Vite
-- **Styling:** Tailwind CSS
-- **State Management:** React Hooks
-- **Data Source:** JSON-based course catalog (Hardcoded initial set from University Bylaws)
+# Dev server
+npm run dev
 
-## 📦 Getting Started
+# Production build
+npm run build
+```
 
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/SheedoM/Damietta-Academic-Advisor.git
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run the development server:
-    ```bash
-    npm run dev
-    ```
+## Project Structure
 
-## 📄 Project Structure
-- `src/data`: Course definitions and static data.
-- `src/lib`: Core logic for roadmap generation and prerequisite checking.
-- `src/types`: TypeScript interfaces for robust type safety.
-- `resources/`: Raw data files (PDFs, text catalogs).
+```
+src/
+├── pages/
+│   ├── StudentPortal.tsx      # Student-facing UI (courses, roadmap, tickets)
+│   └── AdminDashboard.tsx     # Admin panel (course management, requests)
+├── data/
+│   ├── courses.json           # Full course catalog (6 categories, 119 courses)
+│   └── courseDatabase.ts      # Course lookup helpers and category utilities
+├── lib/
+│   └── roadmapLogic.ts        # Roadmap generation algorithm
+├── context/
+│   └── CourseContext.tsx       # Global course state provider
+├── types/
+│   ├── index.ts               # Core types (Student, Course, Major, Term)
+│   └── request.ts             # Student request / ticket types
+├── components/
+│   └── StudentPlanEditor.tsx   # Plan editing component
+└── App.tsx                     # Root routes (/ → Student, /admin → Admin)
 
-## 🧠 Application Logic: Allocation Algorithm
+resources/                      # Raw reference data (bylaws, catalogs)
+scripts/                        # Data processing scripts
+```
 
-The core of the Academic Advisor is a deterministic **Priority Bucket System** that simulates the decision-making process of a human academic advisor. It ensures students graduate in the minimum time possible while adhering to strict university bylaws.
+## Roadmap Algorithm
 
-### 1. Bucket Prioritization
-Courses are categorized into "Buckets" which are filled in a specific order. The algorithm attempts to fill the student's schedule starting from the highest priority bucket:
-1.  **University Mandatory:** (Priority 1) - Courses required for all students (e.g., Human Rights).
-2.  **Basic Science Mandatory:** (Priority 2) - Core Math and Science foundations.
-3.  **Basic Science Elective:** (Priority 3) - Flexible Science credits (e.g., Physics vs Chemistry).
-4.  **College Mandatory:** (Priority 4) - Core computing courses required for all majors.
-5.  **College Elective:** (Priority 5) - Shared electives across the faculty.
-6.  **Major Mandatory:** (Priority 6) - Specific deep-dive courses for CS/IS/IT.
-7.  **Major Elective:** (Priority 7) - Specialized electives within the major.
-8.  **Projects & Training:** (Priority 8) - Graduation projects and summer training.
+The recommendation engine uses a **priority bucket system with global scoring**:
 
-### 2. Selection Process (Per Semester)
-For each simulated semester, the algorithm:
-1.  **Calculates Max Load:** Defaults to 18 Credit Hours (or 12 if GPA < 2.0).
-2.  **Filters Candidates:**
-    - Must be offered in the current semester (Fall/Spring).
-    - Student must NOT have already passed it.
-    - **Strict Prerequisite Check:** All immediate prerequisites must be passed.
-3.  **Fills Logic:**
-    - Iterates through Buckets 1 → 8.
-    - Adds eligible courses to the schedule until the `Max Load` is reached.
-    - Prioritizes "blocking" courses (prerequisites for future critical paths) implicitly by the bucket order.
+1. **Bucket Prioritization** — courses are grouped into priority tiers:
+   - P1: University Mandatory → P2: Basic Science Mandatory → P3: Basic Science Elective
+   - P4: College Mandatory → P5: College Elective
+   - P6: Major Mandatory → P7: Major Elective → P8: Projects & Training
+
+2. **Candidate Filtering** — for each course, the engine checks:
+   - Offered in the current term (Term 1 / Term 2)
+   - Not already passed
+   - All prerequisites satisfied
+   - Course is toggled available by admin
+
+3. **Global Scoring** — all candidates are scored and sorted globally, then selected while respecting per-bucket limits and the student's credit hour cap.
+
+## Future Development
+
+### 🔐 Admin Security
+The current admin authentication uses client-side SHA-256 password hashing — a basic deterrent, not real security. Future work:
+- Server-side authentication with proper session management
+- Role-based access control (admin vs. advisor vs. read-only)
+- Audit logging for course changes
+
+### 🧮 Roadmap Algorithm Redesign
+The current bucket-priority algorithm works for most cases but has known limitations with cross-semester planning and freshman course balance. Planned improvements:
+- Complete algorithm redesign with a unified weighted scoring system
+- Multi-semester planning (full path from current state to graduation)
+- Smarter handling of elective slots and prerequisite chains
+- Configurable scoring weights for different optimization goals
+
+### 💾 Persistent Storage
+The application currently uses `localStorage` for all state (course toggles, requests, tickets). This means data is per-browser and easily lost. Planned migration:
+- Backend API with a proper database (PostgreSQL or Firebase)
+- Persistent course availability state across sessions and devices
+- Student request history and admin ticket management
+- Data backup and export capabilities
+
+### 🎨 UI Improvements
+- Responsive mobile-first redesign
+- Dark mode support
+- Drag-and-drop course plan editor
+- Visual prerequisite dependency graph
+- Print-friendly roadmap export
+
+### 🤖 AI-Powered Advisor Bot
+An LLM-powered assistant integrated into the student portal to:
+- Explain *why* specific courses were recommended and in what order
+- Answer questions about university bylaws, prerequisites, and graduation requirements
+- Suggest alternative plans based on student preferences (lighter load, specific electives, etc.)
+- Provide natural-language interaction for exploring "what-if" scenarios
 
 ---
-*Built with ❤️ for Damietta University Students.*
+
+*Built for Damietta University students — Faculty of Computing and Artificial Intelligence.*
