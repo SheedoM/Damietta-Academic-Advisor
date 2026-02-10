@@ -467,6 +467,19 @@ function AdminDashboard() {
                                             <p><span className="text-gray-500 w-20 inline-block">ID:</span> {selectedRequest.studentId}</p>
                                             <p><span className="text-gray-500 w-20 inline-block">Major:</span> {selectedRequest.major}</p>
                                             <p><span className="text-gray-500 w-20 inline-block">Passed:</span> {selectedRequest.passedHours} hrs ({selectedRequest.passedCourses.length} courses)</p>
+                                            {selectedRequest.transcriptFileData && (
+                                                <p className="pt-1">
+                                                    <span className="text-gray-500 w-20 inline-block">Transcript:</span>
+                                                    <a
+                                                        href={selectedRequest.transcriptFileData}
+                                                        download={selectedRequest.transcriptFileName || `transcript_${selectedRequest.studentId}.pdf`}
+                                                        className="text-indigo-600 hover:text-indigo-800 font-medium hover:underline inline-flex items-center gap-1"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                                        Download PDF
+                                                    </a>
+                                                </p>
+                                            )}
                                         </div>
 
                                         <h4 className="font-medium text-gray-700 text-xs uppercase tracking-wider mb-2">Progress by Category</h4>

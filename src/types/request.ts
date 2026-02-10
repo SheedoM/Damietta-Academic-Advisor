@@ -20,6 +20,8 @@ export interface StudentRequest {
     recommendedPlan: string[];  // Course codes for next semester
     planCredits: number;
     ticket?: TicketData;
+    transcriptFileName?: string;   // Original PDF filename
+    transcriptFileData?: string;   // Base64-encoded PDF data URL
     status: RequestStatus;
     adminNotes?: string;
     createdAt: string;

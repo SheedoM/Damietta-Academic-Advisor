@@ -89,6 +89,10 @@ function StudentPortal() {
     // Plan state
     const [recommendedPlan, setRecommendedPlan] = useState<Course[]>([]);
 
+    // Transcript file state
+    const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
+    const [transcriptError, setTranscriptError] = useState('');
+
     // Ticket state
     const [ticketSubject, setTicketSubject] = useState('');
     const [ticketMessage, setTicketMessage] = useState('');
@@ -204,7 +208,11 @@ function StudentPortal() {
         if (!studentName.trim()) errors.studentName = 'Name is required';
         else if (studentName.trim().length < 3) errors.studentName = 'Minimum 3 characters';
         if (isNaN(student.gpa) || student.gpa < 0 || student.gpa > 4) errors.gpa = 'GPA must be between 0.00 and 4.00';
+        if (!transcriptFile) errors.transcript = 'Transcript PDF is required';
+        else if (transcriptFile.type !== 'application/pdf') errors.transcript = 'File must be a PDF';
+        else if (transcriptFile.size > 10 * 1024 * 1024) errors.transcript = 'File must be under 10 MB';
         setFormErrors(errors);
+        setTranscriptError(errors.transcript || '');
         return Object.keys(errors).length === 0;
     };
 
@@ -227,9 +235,21 @@ function StudentPortal() {
     };
 
     // Submit request
-    const handleSubmitRequest = () => {
+    const handleSubmitRequest = async () => {
         // Validate ticket fields if ticket is toggled on
         if (includeTicket && !validateTicketForm()) return;
+
+        // Read transcript file as base64
+        let transcriptFileData: string | undefined;
+        let transcriptFileName: string | undefined;
+        if (transcriptFile) {
+            transcriptFileName = transcriptFile.name;
+            transcriptFileData = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(transcriptFile);
+            });
+        }
 
         const request: StudentRequest = {
             id: generateTrackingNumber(),
@@ -244,6 +264,8 @@ function StudentPortal() {
                 subject: ticketSubject,
                 message: ticketMessage
             } : undefined,
+            transcriptFileName,
+            transcriptFileData,
             status: 'pending',
             createdAt: new Date().toISOString()
         };
@@ -381,6 +403,45 @@ function StudentPortal() {
                                 <option value={2}>Spring (Term 2)</option>
                                 <option value={3}>Summer (Term 3)</option>
                             </select>
+                        </div>
+
+                        {/* Transcript PDF Upload */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Transcript PDF <span className="text-red-500">*</span></label>
+                            <div className={`border-2 border-dashed rounded-lg p-4 text-center transition ${transcriptFile ? 'border-emerald-300 bg-emerald-50/50' : transcriptError ? 'border-red-300 bg-red-50/30' : 'border-gray-300 hover:border-indigo-300'}`}>
+                                {transcriptFile ? (
+                                    <div className="flex items-center justify-center gap-3">
+                                        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <span className="text-sm text-gray-700 font-medium">{transcriptFile.name}</span>
+                                        <span className="text-xs text-gray-400">({(transcriptFile.size / 1024).toFixed(0)} KB)</span>
+                                        <button onClick={() => { setTranscriptFile(null); setTranscriptError(''); }} className="text-xs text-red-500 hover:text-red-700 ml-2">Remove</button>
+                                    </div>
+                                ) : (
+                                    <label className="cursor-pointer">
+                                        <div className="text-sm text-gray-500">Click to upload or drag & drop</div>
+                                        <div className="text-xs text-gray-400 mt-1">PDF only, max 10 MB</div>
+                                        <input
+                                            type="file"
+                                            accept=".pdf,application/pdf"
+                                            className="hidden"
+                                            onChange={e => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    if (file.type !== 'application/pdf') {
+                                                        setTranscriptError('File must be a PDF');
+                                                    } else if (file.size > 10 * 1024 * 1024) {
+                                                        setTranscriptError('File must be under 10 MB');
+                                                    } else {
+                                                        setTranscriptFile(file);
+                                                        setTranscriptError('');
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                            {transcriptError && <p className="text-xs text-red-600 mt-1">{transcriptError}</p>}
                         </div>
 
                         {/* Passed Courses Loading Options */}
@@ -711,6 +772,7 @@ function StudentPortal() {
                                 <div><span className="text-gray-500">Major:</span> {student.major}</div>
                                 <div><span className="text-gray-500">GPA:</span> {student.gpa}</div>
                                 <div><span className="text-gray-500">Passed Hours:</span> {student.passedHours}</div>
+                                {transcriptFile && <div className="col-span-2"><span className="text-gray-500">Transcript:</span> {transcriptFile.name}</div>}
                             </div>
                         </div>
 
