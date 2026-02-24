@@ -11,6 +11,11 @@ import {
     StudentRequest,
     RequestStatus
 } from '../types/request';
+import { useStudents } from '../context/StudentContext';
+import { StudentProfile } from '../types/student';
+import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassification } from '../lib/gradeUtils';
+import { StudentForm } from '../components/StudentForm';
+import { StudentProfileView } from '../components/StudentProfileView';
 
 
 type CategoryFilter = 'all' | 'university' | 'basic-science' | 'college' | 'major' | 'projects';
@@ -72,7 +77,7 @@ function AdminDashboard() {
     const [passwordInput, setPasswordInput] = useState('');
     const [authError, setAuthError] = useState('');
 
-    const [mainTab, setMainTab] = useState<'courses' | 'requests'>('courses');
+    const [mainTab, setMainTab] = useState<'courses' | 'requests' | 'students'>('courses');
     const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
     const [majorSubtab, setMajorSubtab] = useState<MajorId | 'all'>('all');
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -96,6 +101,25 @@ function AdminDashboard() {
     const [ticketReply, setTicketReply] = useState('');
     const [adminNotes, setAdminNotes] = useState('');
     const [requestPlanEditorOpen, setRequestPlanEditorOpen] = useState(false);
+
+    // Student management state
+    const { students } = useStudents();
+    const [showStudentForm, setShowStudentForm] = useState(false);
+    const [editingStudent, setEditingStudent] = useState<StudentProfile | undefined>(undefined);
+    const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null);
+    const [studentSearch, setStudentSearch] = useState('');
+
+    const courseLookupFn = (code: string) => courses.find(c => c.code === code);
+
+    const filteredStudents = useMemo(() => {
+        if (!studentSearch.trim()) return students;
+        const q = studentSearch.toLowerCase();
+        return students.filter(s =>
+            s.name.toLowerCase().includes(q) ||
+            s.nationalId.toLowerCase().includes(q) ||
+            (s.universityId && s.universityId.toLowerCase().includes(q))
+        );
+    }, [students, studentSearch]);
 
     // Load requests on mount/tab change
     useEffect(() => {
@@ -353,6 +377,16 @@ function AdminDashboard() {
                 >
                     Requests ({requests.filter(r => r.status === 'pending').length} pending)
                 </button>
+
+                <button
+                    onClick={() => setMainTab('students')}
+                    className={`px-4 py-2 font-medium transition border-b-2 -mb-px ${mainTab === 'students'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                >
+                    Students ({students.length})
+                </button>
             </div>
 
             {/* Requests Tab */}
@@ -596,6 +630,116 @@ function AdminDashboard() {
                             initialSelectedCourses={selectedRequest.recommendedPlan}
                             onSave={handleSaveRequestPlan}
                             onCancel={() => setRequestPlanEditorOpen(false)}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* Students Tab */}
+            {mainTab === 'students' && (
+                <div className="space-y-6">
+                    {/* Search and Add */}
+                    <div className="flex gap-4">
+                        <input
+                            type="text"
+                            placeholder="Search by name, national ID, or university ID..."
+                            value={studentSearch}
+                            onChange={e => setStudentSearch(e.target.value)}
+                            className="flex-1 border rounded-md px-4 py-2"
+                        />
+                        <button
+                            onClick={() => { setEditingStudent(undefined); setShowStudentForm(true); }}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition font-medium"
+                        >
+                            + Add Student
+                        </button>
+                    </div>
+
+                    {/* Student List */}
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">University ID</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">National ID</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Major</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GPA</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {filteredStudents.map(student => {
+                                    const gpa = calculateGPA(student.passedCourses, courseLookupFn);
+                                    const hrs = calculatePassedHours(student.passedCourses, courseLookupFn);
+                                    const lvl = inferAcademicLevel(hrs);
+                                    const cls = getGPAClassification(gpa);
+                                    return (
+                                        <tr key={student.nationalId} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedStudent(student)}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 font-mono font-medium">{student.universityId || '—'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{student.nationalId}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.major}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <span className="font-medium">{gpa.toFixed(2)}</span>
+                                                <span className="text-xs text-gray-400 ml-1">{cls}</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Level {lvl}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{hrs}h</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex gap-1">
+                                                    {student.isTransfer && (
+                                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Transfer</span>
+                                                    )}
+                                                    {student.isBlocked && (
+                                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Blocked</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedStudent(student); }}
+                                                    className="text-indigo-600 hover:text-indigo-900"
+                                                >
+                                                    View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        {filteredStudents.length === 0 && (
+                            <div className="p-8 text-center text-gray-500">
+                                {students.length === 0
+                                    ? 'No students yet. Click "+ Add Student" to create one.'
+                                    : 'No students match your search.'}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Student Form Modal */}
+                    {showStudentForm && (
+                        <StudentForm
+                            existingStudent={editingStudent}
+                            onClose={() => setShowStudentForm(false)}
+                            onSaved={() => setShowStudentForm(false)}
+                        />
+                    )}
+
+                    {/* Student Profile View Modal */}
+                    {selectedStudent && (
+                        <StudentProfileView
+                            student={selectedStudent}
+                            onClose={() => setSelectedStudent(null)}
+                            onDeleted={() => setSelectedStudent(null)}
+                            onUpdated={() => {
+                                // Refresh selected student data
+                                setSelectedStudent(null);
+                            }}
                         />
                     )}
                 </div>

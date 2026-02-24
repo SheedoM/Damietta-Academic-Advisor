@@ -5,13 +5,17 @@ import {
     StudentRequest,
     generateTrackingNumber,
     saveRequest,
-    getRequestById
+    getRequestById,
+    getRequestsByStudentId
 } from '../types/request';
 import { useCourses } from '../context/CourseContext';
+import { useStudents } from '../context/StudentContext';
 import { getCourseByCode, COURSES_DATABASE, getCourseRoleInMajor } from '../data/courses';
+import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassification } from '../lib/gradeUtils';
+import { StudentProfile } from '../types/student';
 
 
-type ViewMode = 'input' | 'courses' | 'plan' | 'ticket' | 'submit' | 'tracking' | 'result';
+type ViewMode = 'input' | 'courses' | 'plan' | 'ticket' | 'submit' | 'tracking' | 'result' | 'login' | 'dashboard';
 
 // Helper to calculate progress with mandatory/elective breakdown
 const calculateCategoryProgress = (category: CategoryType, passedCourses: string[], courses: Course[]) => {
@@ -67,6 +71,16 @@ const CATEGORY_NAMES: Record<CategoryType, string> = {
 
 function StudentPortal() {
     const { courses } = useCourses();
+    const { getStudentByUniversityId } = useStudents();
+
+    // Auth state for student login
+    const [authUniversityId, setAuthUniversityId] = useState('');
+    const [authNationalId, setAuthNationalId] = useState('');
+    const [authError, setAuthError] = useState('');
+    const [authenticatedStudent, setAuthenticatedStudent] = useState<StudentProfile | null>(null);
+    const [studentRequests, setStudentRequests] = useState<StudentRequest[]>([]);
+
+    const courseLookupFn = (code: string) => courses.find(c => c.code === code);
 
     // Student state
     const [student, setStudent] = useState<Student>({
@@ -329,6 +343,20 @@ function StudentPortal() {
                         }`}
                 >
                     Track Request
+                </button>
+                <button
+                    onClick={() => {
+                        if (authenticatedStudent) {
+                            setStudentRequests(getRequestsByStudentId(authenticatedStudent.universityId));
+                            setViewMode('dashboard');
+                        } else {
+                            setViewMode('login');
+                        }
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition ${(viewMode === 'login' || viewMode === 'dashboard') ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                        }`}
+                >
+                    {authenticatedStudent ? `👤 ${authenticatedStudent.name}` : '🔐 My Account'}
                 </button>
             </div>
 
@@ -928,6 +956,226 @@ function StudentPortal() {
                             No request found with that tracking number.
                         </p>
                     )}
+                </div>
+            )}
+
+            {/* Login View */}
+            {viewMode === 'login' && (
+                <div className="max-w-md mx-auto">
+                    <div className="bg-white rounded-xl shadow-lg p-8">
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <span className="text-2xl">🎓</span>
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900">Student Login</h2>
+                            <p className="text-sm text-gray-500 mt-1">Access your academic dashboard and request history</p>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">University ID</label>
+                                <input
+                                    type="text"
+                                    value={authUniversityId}
+                                    onChange={e => { setAuthUniversityId(e.target.value); setAuthError(''); }}
+                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 font-mono focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    placeholder="e.g., 2026-0001"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">National ID</label>
+                                <input
+                                    type="text"
+                                    value={authNationalId}
+                                    onChange={e => { setAuthNationalId(e.target.value); setAuthError(''); }}
+                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 font-mono focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    placeholder="e.g., 29901011234567"
+                                />
+                            </div>
+                            {authError && <p className="text-sm text-red-600">{authError}</p>}
+                            <button
+                                onClick={() => {
+                                    const student = getStudentByUniversityId(authUniversityId.trim());
+                                    if (!student) {
+                                        setAuthError('No student found with this University ID.');
+                                        return;
+                                    }
+                                    if (student.nationalId !== authNationalId.trim()) {
+                                        setAuthError('National ID does not match.');
+                                        return;
+                                    }
+                                    setAuthenticatedStudent(student);
+                                    setStudentRequests(getRequestsByStudentId(student.universityId));
+                                    setViewMode('dashboard');
+                                }}
+                                disabled={!authUniversityId.trim() || !authNationalId.trim()}
+                                className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
+                            >
+                                Sign In
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Dashboard View (authenticated student) */}
+            {viewMode === 'dashboard' && authenticatedStudent && (
+                <div className="space-y-6 max-w-4xl mx-auto">
+                    {/* Blocked banner */}
+                    {authenticatedStudent.isBlocked && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                            <span className="text-2xl">🚫</span>
+                            <div>
+                                <p className="font-semibold text-red-800">Account Blocked</p>
+                                <p className="text-sm text-red-600">Your account has been blocked by an administrator. You can view your information but cannot submit new requests.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Welcome header */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">Welcome, {authenticatedStudent.name}</h2>
+                                <p className="text-sm text-gray-500">
+                                    University ID: <span className="font-mono font-medium text-purple-600">{authenticatedStudent.universityId}</span>
+                                    {' • '}Major: {authenticatedStudent.major}
+                                    {authenticatedStudent.isTransfer && (
+                                        <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                            Transfer from {authenticatedStudent.previousUniversity}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setAuthenticatedStudent(null);
+                                    setAuthUniversityId('');
+                                    setAuthNationalId('');
+                                    setViewMode('input');
+                                }}
+                                className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Academic Summary */}
+                    {(() => {
+                        const gpa = calculateGPA(authenticatedStudent.passedCourses, courseLookupFn);
+                        const passedHours = calculatePassedHours(authenticatedStudent.passedCourses, courseLookupFn);
+                        const level = inferAcademicLevel(passedHours);
+                        const classification = getGPAClassification(gpa);
+                        const totalHoursForGraduation = 144;
+                        const progressPercent = Math.min(100, Math.round((passedHours / totalHoursForGraduation) * 100));
+                        return (
+                            <div className="bg-white rounded-xl shadow-lg p-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4">Academic Status</h3>
+                                <div className="grid grid-cols-4 gap-4 mb-4">
+                                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 text-center">
+                                        <p className="text-3xl font-bold text-indigo-700">{gpa.toFixed(2)}</p>
+                                        <p className="text-xs text-indigo-500 mt-1">{classification}</p>
+                                        <p className="text-xs text-gray-400">GPA</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 text-center">
+                                        <p className="text-3xl font-bold text-blue-700">{passedHours}</p>
+                                        <p className="text-xs text-blue-500 mt-1">of ~{totalHoursForGraduation}h</p>
+                                        <p className="text-xs text-gray-400">Passed Hours</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 text-center">
+                                        <p className="text-3xl font-bold text-green-700">{level}</p>
+                                        <p className="text-xs text-green-500 mt-1">Year {level}</p>
+                                        <p className="text-xs text-gray-400">Academic Level</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 text-center">
+                                        <p className="text-3xl font-bold text-purple-700">{authenticatedStudent.passedCourses.length}</p>
+                                        <p className="text-xs text-purple-500 mt-1">{authenticatedStudent.passedCourses.filter(c => c.grade !== 'Fail').length} passed</p>
+                                        <p className="text-xs text-gray-400">Courses</p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-600 font-medium">Progress to Graduation</span>
+                                    <span className="text-gray-500">{progressPercent}%</span>
+                                </div>
+                                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${progressPercent >= 75 ? 'bg-green-500' : progressPercent >= 50 ? 'bg-blue-500' : 'bg-indigo-500'}`}
+                                        style={{ width: `${progressPercent}%` }}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Request History */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Request History</h3>
+                        {studentRequests.length > 0 ? (
+                            <div className="space-y-3">
+                                {studentRequests.map(req => (
+                                    <div key={req.id} className="border rounded-lg p-4 hover:bg-gray-50 transition">
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <span className="font-mono text-sm font-medium text-indigo-600">{req.id}</span>
+                                                <span className="text-xs text-gray-400 ml-3">{new Date(req.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${req.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                                                    req.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                                                        'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                {req.status.replace('_', ' ')}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm text-gray-600 mt-2">
+                                            <span>{req.recommendedPlan.length} courses</span>
+                                            <span className="mx-2">•</span>
+                                            <span>{req.planCredits} credits</span>
+                                            {req.ticket && (
+                                                <>
+                                                    <span className="mx-2">•</span>
+                                                    <span className="text-orange-600">Ticket: {req.ticket.subject}</span>
+                                                    {req.ticket.adminReply && (
+                                                        <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                                                            <strong>Admin reply:</strong> {req.ticket.adminReply}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                        {req.adminNotes && (
+                                            <div className="mt-2 text-xs text-gray-500 italic">Notes: {req.adminNotes}</div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-gray-400">
+                                No requests found.
+                            </div>
+                        )}
+
+                        {!authenticatedStudent.isBlocked && (
+                            <div className="mt-4 pt-4 border-t">
+                                <button
+                                    onClick={() => {
+                                        setStudentId(authenticatedStudent.universityId);
+                                        setStudentName(authenticatedStudent.name);
+                                        setStudent(prev => ({
+                                            ...prev,
+                                            major: authenticatedStudent.major,
+                                            passedCourses: authenticatedStudent.passedCourses
+                                                .filter(c => c.grade !== 'Fail')
+                                                .map(c => c.courseCode),
+                                        }));
+                                        setViewMode('courses');
+                                    }}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition"
+                                >
+                                    + Submit New Request
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
