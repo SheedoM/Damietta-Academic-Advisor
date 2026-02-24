@@ -51,9 +51,26 @@
   - Add Student button → StudentForm modal
   - Click row → StudentProfileView
 
-## Phase 5: Verification
+- [x] **T-009**: Enhance AdminDashboard with University ID and blocked status
+  - Added University ID column in student list table
+  - Added Blocked badge alongside Transfer badge in Status column
+  - Search now supports name, national ID, and university ID
 
-- [x] **T-009**: Build verification
+## Phase 5: Student Portal Authentication
+
+- [x] **T-010**: Add student auth flow to StudentPortal (`src/pages/StudentPortal.tsx`)
+  - Added `login` and `dashboard` ViewMode options
+  - "My Account" navigation button (separate from existing flow)
+  - Login form: University ID + National ID verification
+  - Dashboard: academic status cards (GPA, hours, level, courses)
+  - Progress bar to graduation
+  - Request history with status badges and admin replies
+  - Blocked banner with disabled request submission
+  - "Submit New Request" pre-fills student data into existing flow
+
+## Phase 6: Verification
+
+- [x] **T-011**: Build verification
   - TypeScript compilation: `tsc --noEmit` passes with zero errors
   - Dev server: Vite starts successfully on port 5173
   - Browser testing: requires manual verification
