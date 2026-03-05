@@ -389,9 +389,9 @@ function AdminDashboard() {
                     {/* Main Tabs */}
                     <div className="flex px-6 pt-4 border-b border-gray-100 bg-gray-50/50">
                         <button
-                            onClick={() => setMainTab('courses')}
+                            onClick={setMainTab.bind(null, 'courses')}
                             className={`px-6 py-4 font-bold transition border-b-2 -mb-px text-sm tracking-wide ${mainTab === 'courses'
-                                ? 'border-university text-university'
+                                ? 'border-[#0160C9] text-[#0160C9]'
                                 : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
                                 }`}
                         >
@@ -399,29 +399,29 @@ function AdminDashboard() {
                         </button>
 
                         <button
-                            onClick={() => setMainTab('tickets')}
+                            onClick={setMainTab.bind(null, 'tickets')}
                             className={`px-6 py-4 font-bold transition border-b-2 -mb-px text-sm tracking-wide flex items-center gap-2 ${mainTab === 'tickets'
-                                ? 'border-university text-university'
+                                ? 'border-[#0160C9] text-[#0160C9]'
                                 : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
                                 }`}
                         >
                             🎫 TICKETS
                             {tickets.filter(t => t.status === 'open').length > 0 && (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] text-white ${mainTab === 'tickets' ? 'bg-university' : 'bg-gray-400'}`}>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] text-white ${mainTab === 'tickets' ? 'bg-[#0160C9]' : 'bg-gray-400'}`}>
                                     {tickets.filter(t => t.status === 'open').length}
                                 </span>
                             )}
                         </button>
 
                         <button
-                            onClick={() => setMainTab('students')}
+                            onClick={setMainTab.bind(null, 'students')}
                             className={`px-6 py-4 font-bold transition border-b-2 -mb-px text-sm tracking-wide flex items-center gap-2 ${mainTab === 'students'
-                                ? 'border-university text-university'
+                                ? 'border-[#0160C9] text-[#0160C9]'
                                 : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
                                 }`}
                         >
                             👨‍🎓 STUDENTS
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] text-white ${mainTab === 'students' ? 'bg-university' : 'bg-gray-400'}`}>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] text-white ${mainTab === 'students' ? 'bg-[#0160C9]' : 'bg-gray-400'}`}>
                                 {students.length}
                             </span>
                         </button>
@@ -573,7 +573,7 @@ function AdminDashboard() {
                                         </select>
                                         <button
                                             onClick={handleGeneratePlansForAll}
-                                            className="px-5 py-2 bg-university text-white rounded-xl hover:bg-university-600 font-bold text-sm shadow-md shadow-university/20 transition-all flex items-center gap-2"
+                                            className="px-5 py-2 bg-[#0160C9] text-white rounded-xl hover:bg-blue-800 font-bold text-sm shadow-md transition-all flex items-center gap-2"
                                         >
                                             <span>⚡</span> Generate Drafts
                                         </button>
@@ -594,7 +594,7 @@ function AdminDashboard() {
                                     </div>
                                     <button
                                         onClick={() => { setEditingStudent(undefined); setShowStudentForm(true); }}
-                                        className="px-6 py-3 bg-university text-white rounded-xl hover:bg-university-600 font-bold text-sm shadow-md shadow-university/20 transition-all flex items-center gap-2 border border-university-600"
+                                        className="px-6 py-3 bg-[#0160C9] text-white rounded-xl hover:bg-blue-800 font-bold text-sm shadow-md shadow-blue-900/10 transition-all flex items-center gap-2"
                                     >
                                         <span className="text-white">+</span> <span className="text-white">Add Student</span>
                                     </button>

@@ -266,15 +266,15 @@ function StudentPortal() {
                 {authenticatedStudent && (
                     <div className="mb-6 flex gap-3 flex-wrap bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                         <button onClick={() => setViewMode('dashboard')}
-                            className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'dashboard' ? 'bg-university text-white shadow-md shadow-university/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
+                            className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'dashboard' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
                             <span>📊</span> Dashboard
                         </button>
                         <button onClick={() => setViewMode('courses')}
-                            className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'courses' ? 'bg-university text-white shadow-md shadow-university/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
+                            className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'courses' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
                             <span>📚</span> Courses
                         </button>
                         <button onClick={() => { setTicketSubmitted(null); setViewMode('ticket'); }}
-                            className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'ticket' ? 'bg-university text-white shadow-md shadow-university/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
+                            className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'ticket' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
                             <span>🎫</span> Submit Ticket
                         </button>
                         <div className="flex-1" />
@@ -510,14 +510,14 @@ function StudentPortal() {
                                 {regErrors.general && <p className="text-sm font-bold text-red-600 bg-red-50 p-3 rounded-lg border border-red-100 text-center">{regErrors.general}</p>}
 
                                 <div className="pt-4">
-                                    <button onClick={handleRegister} className="w-full bg-university text-white py-4 rounded-xl font-bold hover:bg-university-600 transition-all shadow-lg shadow-university/30 text-sm tracking-wide">
+                                    <button onClick={handleRegister} className="w-full bg-[#0160C9] text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg text-sm tracking-wide">
                                         ENROLL STUDENT RECORD
                                     </button>
                                 </div>
 
                                 <div className="text-center pt-6 pb-2 border-t border-gray-100">
                                     <p className="text-sm font-medium text-gray-500">Already registered?{' '}
-                                        <button onClick={() => setViewMode('login')} className="text-university font-bold hover:text-university-700 hover:underline underline-offset-4 decoration-2 transition">Sign In Instead</button>
+                                        <button onClick={() => setViewMode('login')} className="text-[#0160C9] font-bold hover:text-blue-700 hover:underline underline-offset-4 decoration-2 transition">Sign In Instead</button>
                                     </p>
                                 </div>
                             </div>
@@ -716,13 +716,13 @@ function StudentPortal() {
                             <div className="flex bg-gray-100 p-1 rounded-xl">
                                 <button
                                     onClick={() => setCourseViewType('graph')}
-                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${courseViewType === 'graph' ? 'bg-white text-university shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${courseViewType === 'graph' ? 'bg-white text-[#0160C9] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     🗺️ Graph View
                                 </button>
                                 <button
                                     onClick={() => setCourseViewType('list')}
-                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${courseViewType === 'list' ? 'bg-white text-university shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${courseViewType === 'list' ? 'bg-white text-[#0160C9] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     📋 List View
                                 </button>
@@ -840,7 +840,7 @@ function StudentPortal() {
                                     <p className="text-xl font-mono font-bold text-university">{ticketSubmitted.id}</p>
                                 </div>
                                 <div className="flex gap-4 justify-center">
-                                    <button onClick={() => setViewMode('dashboard')} className="px-6 py-3.5 bg-university text-white rounded-xl font-bold hover:bg-university-600 transition-all shadow-md shadow-university/20 text-sm">Dashboard</button>
+                                    <button onClick={() => setViewMode('dashboard')} className="px-6 py-3.5 bg-[#0160C9] text-white rounded-xl font-bold hover:bg-blue-800 transition-all shadow-md text-sm">Dashboard</button>
                                     <button onClick={() => setTicketSubmitted(null)} className="px-6 py-3.5 border border-gray-200 bg-white text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all text-sm">Submit Another</button>
                                 </div>
                             </div>
@@ -889,7 +889,7 @@ function StudentPortal() {
                                         </div>
                                     </div>
                                     <div className="pt-2">
-                                        <button onClick={handleSubmitTicket} className="w-full bg-university text-white py-4 rounded-xl font-bold hover:bg-university-600 transition-all shadow-lg shadow-university/30 text-sm tracking-wide">
+                                        <button onClick={handleSubmitTicket} className="w-full bg-[#0160C9] text-white py-4 rounded-xl font-bold hover:bg-blue-800 transition-all shadow-lg text-sm tracking-wide">
                                             SUBMIT TICKET
                                         </button>
                                     </div>

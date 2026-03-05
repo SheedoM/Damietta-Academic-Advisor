@@ -406,7 +406,7 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                 </div>
                                 <button
                                     onClick={handleGenerateRoadmap}
-                                    className="px-5 py-2.5 bg-university bg-[#0160C9] text-white rounded-xl hover:bg-blue-700 font-bold text-sm shadow-md shadow-[#0160C9]/20 transition-all flex items-center gap-2"
+                                    className="px-5 py-2.5 bg-[#0160C9] text-white rounded-xl hover:bg-blue-700 font-bold text-sm shadow-md shadow-blue-900/10 transition-all flex items-center gap-2"
                                 >
                                     <span>⚡</span> Auto-Generate Plan
                                 </button>
@@ -489,9 +489,9 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
 
                                             {/* Resolution / Admin Reply Section */}
                                             {ticket.adminReply ? (
-                                                <div className="mt-4 p-4 bg-university/5 rounded-xl border border-university/10 relative">
-                                                    <div className="absolute -top-3 left-4 bg-university-50 text-university-700 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-university-100">Advisor Reply</div>
-                                                    <p className="text-sm font-medium text-university-900 mt-1">{ticket.adminReply}</p>
+                                                <div className="mt-4 p-4 bg-[#0160C9]/5 rounded-xl border border-[#0160C9]/10 relative">
+                                                    <div className="absolute -top-3 left-4 bg-blue-50 text-[#0160C9] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-blue-100">Advisor Reply</div>
+                                                    <p className="text-sm font-medium text-blue-900 mt-1">{ticket.adminReply}</p>
                                                 </div>
                                             ) : ticket.status !== 'resolved' ? (
                                                 <div className="mt-4 pt-4 border-t border-gray-100">
@@ -501,12 +501,12 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                                             value={replyText[ticket.id] || ''}
                                                             onChange={e => setReplyText(prev => ({ ...prev, [ticket.id]: e.target.value }))}
                                                             placeholder="Type admin reply here..."
-                                                            className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all resize-none h-10"
+                                                            className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#0160C9]/40 focus:border-[#0160C9] outline-none transition-all resize-none h-10"
                                                         />
                                                         <button
                                                             onClick={() => handleResolveTicket(ticket.id)}
                                                             disabled={!replyText[ticket.id]?.trim()}
-                                                            className="px-4 bg-university text-white rounded-xl font-bold text-sm shadow-sm hover:bg-university-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                                            className="px-4 bg-[#0160C9] text-white rounded-xl font-bold text-sm shadow-sm hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                                         >
                                                             Resolve
                                                         </button>
