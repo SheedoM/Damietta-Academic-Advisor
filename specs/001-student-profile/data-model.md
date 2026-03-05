@@ -1,6 +1,6 @@
 # Data Model: Student Profile
 
-**Branch**: `001-student-profile` | **Date**: 2026-02-24
+**Branch**: `001-student-profile` | **Date**: 2026-02-24 | **Updated**: 2026-03-03
 
 ## Entities
 
@@ -11,20 +11,21 @@ The primary entity representing a student in the system.
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `nationalId` | `string` | ✅ | Unique identifier (primary key) |
-| `universityId` | `string` | ✅ | System-generated, format: `YYYY-NNNN` (e.g., `2026-0001`). Admin can also enter manually. |
+| `universityId` | `string` | ✅ | System-generated, format: `YYYYNNNN` (e.g., `20260001`). Admin can also enter manually. No hyphen. |
 | `name` | `string` | ✅ | Student's full name |
 | `major` | `Major` | ✅ | `'CS' \| 'IT' \| 'IS' \| 'General'` |
 | `isTransfer` | `boolean` | ✅ | Default: `false` |
 | `previousUniversity` | `string` | Only if transfer | Name of previous university |
-| `isBlocked` | `boolean` | ✅ | Default: `false`. Blocked students have read-only access. |
+| `isBlocked` | `boolean` | ✅ | Default: `false`. Blocked students cannot view semester plan or submit requests. |
 | `passedCourses` | `PassedCourseRecord[]` | ✅ | Default: `[]`. Only populated at creation for transfer students. |
 | `createdAt` | `string` | ✅ | ISO 8601 timestamp |
 | `updatedAt` | `string` | ✅ | ISO 8601 timestamp |
 
 **Computed fields** (not stored, derived at read time):
 - `gpa`: Calculated from `passedCourses` grades and course credit hours
-- `academicLevel`: Inferred from total passed credit hours
+- `academicLevel`: Inferred from total passed credit hours (30/66/102 thresholds)
 - `passedHours`: Sum of credit hours for non-failed courses
+- `academicStanding`: "Good" if CGPA ≥ 2.0, "Observation" if CGPA < 2.0
 
 **Authentication**: University ID + National ID pair verification (no passwords stored).
 
@@ -38,6 +39,7 @@ Links a student to a completed course with grade information.
 | `grade` | `Grade` | ✅ | `'Excellent' \| 'Very Good' \| 'Good' \| 'Pass' \| 'Fail'` |
 | `gradePoints` | `number` | ✅ | `4.0 \| 3.0 \| 2.0 \| 1.0 \| 0.0` |
 | `isTransferred` | `boolean` | ✅ | `true` if from previous university |
+| `isRepeated` | `boolean` | ✅ | `true` if course was previously failed and re-taken. Max grade capped at B (3.0) |
 
 ### Grade (enum-like type)
 
@@ -58,6 +60,16 @@ The existing `StudentRequest` type gains a new semantic relationship: the `stude
 | `studentId` | `string` | Now semantically linked to `StudentProfile.universityId` |
 
 **No schema changes** to the `StudentRequest` type — only a new query function `getRequestsByStudentId()`.
+
+### WeightedCourse (new, algorithm internal)
+
+Used internally by the weight scoring engine during plan generation.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `course` | `Course` | Reference to the course object |
+| `weight` | `number` | Computed priority weight (100/50/25/10) |
+| `weightReason` | `string` | Why this weight was assigned (for logging) |
 
 ## Relationships
 
@@ -83,7 +95,9 @@ erDiagram
 6. `passedCourses[].courseCode` must not be duplicated within the same student's list
 7. If `isTransfer` is `true`, `previousUniversity` must be non-empty
 8. If `isTransfer` is `false`, `previousUniversity` must be `undefined` and `passedCourses` must be `[]`
-9. `universityId` must match format `YYYY-NNNN` (4-digit year, dash, 4-digit sequence)
+9. `universityId` must match format `YYYYNNNN` (4-digit year, 4-digit sequence, no hyphen)
+10. If `isRepeated` is `true` on a PassedCourseRecord, `gradePoints` must be capped at 3.0 (max B)
+11. CGPA < 2.0 triggers academic observation status (computed, not stored)
 
 ## Storage Schema
 
@@ -93,7 +107,7 @@ erDiagram
   "value": [
     {
       "nationalId": "29901011234567",
-      "universityId": "2026-0001",
+      "universityId": "20260001",
       "name": "Ahmed Mohamed",
       "major": "CS",
       "isTransfer": false,
@@ -104,7 +118,7 @@ erDiagram
     },
     {
       "nationalId": "29801021234567",
-      "universityId": "2026-0002",
+      "universityId": "20260002",
       "name": "Fatma Ali",
       "major": "IT",
       "isTransfer": true,
@@ -115,7 +129,8 @@ erDiagram
           "courseCode": "CS101",
           "grade": "Excellent",
           "gradePoints": 4.0,
-          "isTransferred": true
+          "isTransferred": true,
+          "isRepeated": false
         }
       ],
       "createdAt": "2026-02-24T12:30:00Z",
@@ -130,14 +145,25 @@ erDiagram
 ```typescript
 function generateUniversityId(existingProfiles: StudentProfile[]): string {
     const year = new Date().getFullYear();
-    const yearPrefix = `${year}-`;
+    const yearStr = String(year);
     const existingIds = existingProfiles
         .map(p => p.universityId)
-        .filter(id => id.startsWith(yearPrefix))
-        .map(id => parseInt(id.split('-')[1], 10))
+        .filter(id => id.startsWith(yearStr))
+        .map(id => parseInt(id.slice(4), 10))
         .filter(n => !isNaN(n));
     const nextSeq = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
-    return `${year}-${String(nextSeq).padStart(4, '0')}`;
+    return `${year}${String(nextSeq).padStart(4, '0')}`;
+}
+```
+
+## Academic Level Inference (Updated)
+
+```typescript
+function inferAcademicLevel(passedHours: number): 1 | 2 | 3 | 4 {
+    if (passedHours >= 102) return 4;
+    if (passedHours >= 66) return 3;
+    if (passedHours >= 30) return 2;
+    return 1;
 }
 ```
 
@@ -156,6 +182,6 @@ interface Student {
 
 **Mapping**: `toStudentForRoadmap(profile: StudentProfile) → Student`
 - `major` → direct copy
-- `gpa` → calculated from `passedCourses` grades
+- `gpa` → calculated from `passedCourses` grades (with `isRepeated` grade cap applied)
 - `passedCourses` → extracted course codes (excluding failed)
 - `passedHours` → sum of credit hours (excluding failed)

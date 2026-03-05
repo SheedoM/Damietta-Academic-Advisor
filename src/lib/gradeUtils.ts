@@ -27,7 +27,12 @@ export function calculateGPA(
         const course = courseLookup(record.courseCode);
         if (!course) continue;
 
-        totalWeightedPoints += record.gradePoints * course.credits;
+        let points = record.gradePoints;
+        if (record.isRepeated && points > 3.0) {
+            points = 3.0; // Cap at B (3.0) for repeated courses
+        }
+
+        totalWeightedPoints += points * course.credits;
         totalCredits += course.credits;
     }
 
@@ -53,11 +58,11 @@ export function calculatePassedHours(
 
 /**
  * Infer academic level from total passed credit hours.
- * Level 1: 0–29h, Level 2: 30–59h, Level 3: 60–89h, Level 4: 90+h
+ * Level 1: 0–29h, Level 2: 30–65h, Level 3: 66–101h, Level 4: 102+h
  */
 export function inferAcademicLevel(passedHours: number): 1 | 2 | 3 | 4 {
-    if (passedHours >= 90) return 4;
-    if (passedHours >= 60) return 3;
+    if (passedHours >= 102) return 4;
+    if (passedHours >= 66) return 3;
     if (passedHours >= 30) return 2;
     return 1;
 }
@@ -77,6 +82,9 @@ export function toStudentForRoadmap(
         passedCourses: profile.passedCourses
             .filter(r => r.grade !== 'Fail')
             .map(r => r.courseCode),
+        failedCourses: profile.passedCourses
+            .filter(r => r.grade === 'Fail')
+            .map(r => r.courseCode),
         passedHours,
     };
 }
@@ -90,4 +98,18 @@ export function getGPAClassification(gpa: number): string {
     if (gpa >= 2.0) return 'Good';
     if (gpa >= 1.0) return 'Pass';
     return 'Fail';
+}
+
+/**
+ * Get academic standing.
+ */
+export function getAcademicStanding(gpa: number): 'Good' | 'Observation' {
+    return gpa >= 2.0 ? 'Good' : 'Observation';
+}
+
+/**
+ * Get max credit load based on GPA.
+ */
+export function getMaxCreditLoad(gpa: number): number {
+    return gpa >= 2.0 ? 19 : 12;
 }

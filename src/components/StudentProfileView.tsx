@@ -2,18 +2,19 @@
  * StudentProfileView Component
  * 
  * Displays full student profile with computed academic data,
- * passed courses table, and roadmap generation.
+ * passed courses table, roadmap generation, plan approval, and ticket history.
  */
 
 import { useState } from 'react';
-import { StudentProfile } from '../types/student';
-import { getRequestsByStudentId, StudentRequest } from '../types/request';
+import { StudentProfile, ApprovedPlan } from '../types/student';
+import { Ticket, getTicketsByStudentId } from '../types/ticket';
 import { useCourses } from '../context/CourseContext';
 import { useStudents } from '../context/StudentContext';
 import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassification, toStudentForRoadmap } from '../lib/gradeUtils';
 import { generateRoadmap } from '../lib/roadmapLogic';
-import { Term } from '../types';
+import { Major, Term } from '../types';
 import { StudentForm } from './StudentForm';
+import { StudentPlanEditor } from './StudentPlanEditor';
 
 interface StudentProfileViewProps {
     student: StudentProfile;
@@ -24,12 +25,16 @@ interface StudentProfileViewProps {
 
 export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: StudentProfileViewProps) {
     const { courses } = useCourses();
-    const { removeStudent, getStudent, toggleBlock } = useStudents();
+    const { removeStudent, getStudent, toggleBlock, updateStudent } = useStudents();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showEditForm, setShowEditForm] = useState(false);
     const [roadmap, setRoadmap] = useState<string[] | null>(null);
-    const [showHistory, setShowHistory] = useState(false);
-    const [requestHistory, setRequestHistory] = useState<StudentRequest[]>([]);
+    const [roadmapCredits, setRoadmapCredits] = useState(0);
+    const [showTicketHistory, setShowTicketHistory] = useState(false);
+    const [ticketHistory, setTicketHistory] = useState<Ticket[]>([]);
+    const [showPlanEditor, setShowPlanEditor] = useState(false);
+    const [planSemester, setPlanSemester] = useState('Fall 2026');
+    const [planTerm, setPlanTerm] = useState<Term>(1);
 
     // Use fresh student data from context
     const currentStudent = getStudent(student.nationalId) || student;
@@ -48,10 +53,32 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
 
     const handleGenerateRoadmap = () => {
         const studentForRoadmap = toStudentForRoadmap(currentStudent, courseLookup);
-        // Use Term 1 as default; in future could let user pick
-        const currentTerm: Term = 1;
-        const result = generateRoadmap(studentForRoadmap, currentTerm, courses);
-        setRoadmap(result.roadmap.map(c => c.code));
+        const result = generateRoadmap(studentForRoadmap, planTerm, courses);
+        const codes = result.roadmap.map(c => c.code);
+        setRoadmap(codes);
+        setRoadmapCredits(result.roadmap.reduce((sum, c) => sum + c.credits, 0));
+    };
+
+    const handleApprovePlan = () => {
+        if (!roadmap || roadmap.length === 0) return;
+        const plan: ApprovedPlan = {
+            courses: roadmap,
+            credits: roadmapCredits,
+            semester: planSemester,
+            approvedAt: new Date().toISOString(),
+        };
+        updateStudent({ ...currentStudent, approvedPlan: plan });
+        onUpdated();
+    };
+
+    const handleSaveEditedPlan = (selectedCourses: string[]) => {
+        const credits = selectedCourses.reduce((sum, code) => {
+            const c = courseLookup(code);
+            return sum + (c?.credits || 0);
+        }, 0);
+        setRoadmap(selectedCourses);
+        setRoadmapCredits(credits);
+        setShowPlanEditor(false);
     };
 
     const handleDelete = () => {
@@ -72,6 +99,19 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
         );
     }
 
+    if (showPlanEditor) {
+        return (
+            <StudentPlanEditor
+                studentId={currentStudent.universityId}
+                studentMajor={currentStudent.major as Major}
+                passedCourses={currentStudent.passedCourses.filter(c => c.grade !== 'Fail').map(c => c.courseCode)}
+                initialSelectedCourses={roadmap || []}
+                onSave={handleSaveEditedPlan}
+                onCancel={() => setShowPlanEditor(false)}
+            />
+        );
+    }
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
@@ -82,6 +122,9 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                             <h2 className="text-2xl font-bold text-gray-900">{currentStudent.name}</h2>
                             {currentStudent.isBlocked && (
                                 <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Blocked</span>
+                            )}
+                            {gpa < 2.0 && (
+                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold border border-yellow-200">Academic Observation</span>
                             )}
                         </div>
                         <p className="text-sm text-gray-500">
@@ -108,13 +151,13 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                         </button>
                         <button
                             onClick={() => {
-                                const history = getRequestsByStudentId(currentStudent.universityId);
-                                setRequestHistory(history);
-                                setShowHistory(!showHistory);
+                                const history = getTicketsByStudentId(currentStudent.universityId);
+                                setTicketHistory(history);
+                                setShowTicketHistory(!showTicketHistory);
                             }}
                             className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
                         >
-                            History ({getRequestsByStudentId(currentStudent.universityId).length})
+                            🎫 Tickets ({getTicketsByStudentId(currentStudent.universityId).length})
                         </button>
                         <button
                             onClick={() => setShowEditForm(true)}
@@ -204,6 +247,9 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                                     {record.isTransferred && (
                                                         <span className="ml-1 text-xs bg-orange-100 text-orange-700 px-1 rounded">T</span>
                                                     )}
+                                                    {record.isRepeated && (
+                                                        <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 rounded" title="Repeated course">R</span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-2 text-sm text-gray-600">{course?.name || 'Unknown'}</td>
                                                 <td className="px-4 py-2 text-sm text-gray-500">{course?.credits || '-'}</td>
@@ -226,67 +272,135 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                     )}
                 </div>
 
-                {/* Generate Roadmap */}
-                <div className="mb-6">
-                    <button
-                        onClick={handleGenerateRoadmap}
-                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm"
-                    >
-                        🗺️ Generate Roadmap
-                    </button>
+                {/* Approved Plan (if exists) */}
+                {currentStudent.approvedPlan && (
+                    <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-semibold text-green-800">✅ Approved Plan — {currentStudent.approvedPlan.semester}</h3>
+                            <span className="text-xs text-green-600">
+                                Approved {new Date(currentStudent.approvedPlan.approvedAt).toLocaleDateString()}
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {currentStudent.approvedPlan.courses.map(code => {
+                                const course = courseLookup(code);
+                                return (
+                                    <span key={code} className="px-2 py-1 bg-white rounded border border-green-200 text-sm">
+                                        <span className="font-mono font-medium">{code}</span>
+                                        {course && <span className="text-gray-500 ml-1">({course.credits}cr)</span>}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                        <p className="text-xs text-green-600 mt-2">
+                            Total: {currentStudent.approvedPlan.credits} credit hours • {currentStudent.approvedPlan.courses.length} courses
+                        </p>
+                    </div>
+                )}
+
+                {/* Generate & Approve Plan */}
+                <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <h3 className="text-sm font-semibold text-indigo-800 mb-3">📋 Semester Plan</h3>
+                    <div className="flex flex-wrap items-end gap-3 mb-3">
+                        <div>
+                            <label className="block text-xs text-gray-600 mb-1">Semester</label>
+                            <input
+                                type="text"
+                                value={planSemester}
+                                onChange={e => setPlanSemester(e.target.value)}
+                                className="border rounded-md px-3 py-1.5 text-sm w-40"
+                                placeholder="e.g., Fall 2026"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-600 mb-1">Term</label>
+                            <select
+                                value={planTerm}
+                                onChange={e => setPlanTerm(Number(e.target.value) as Term)}
+                                className="border rounded-md px-3 py-1.5 text-sm"
+                            >
+                                <option value={1}>Fall (T1)</option>
+                                <option value={2}>Spring (T2)</option>
+                            </select>
+                        </div>
+                        <button
+                            onClick={handleGenerateRoadmap}
+                            className="px-4 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium text-sm"
+                        >
+                            🗺️ Generate Plan
+                        </button>
+                    </div>
 
                     {roadmap && (
-                        <div className="mt-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                            <h4 className="text-sm font-semibold text-green-800 mb-2">
-                                Recommended Next Semester ({roadmap.length} courses)
-                            </h4>
+                        <div className="mt-3">
+                            <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-semibold text-indigo-800">
+                                    Recommended ({roadmap.length} courses • {roadmapCredits} credits)
+                                </h4>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setShowPlanEditor(true)}
+                                        className="px-3 py-1 text-xs bg-indigo-200 text-indigo-800 rounded hover:bg-indigo-300 font-medium"
+                                    >
+                                        ✏️ Edit Plan
+                                    </button>
+                                    <button
+                                        onClick={handleApprovePlan}
+                                        className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+                                    >
+                                        ✅ Approve Plan
+                                    </button>
+                                </div>
+                            </div>
                             <div className="flex flex-wrap gap-2">
                                 {roadmap.map(code => {
                                     const course = courseLookup(code);
                                     return (
-                                        <span key={code} className="px-2 py-1 bg-white rounded border border-green-200 text-sm">
+                                        <span key={code} className="px-2 py-1 bg-white rounded border border-indigo-200 text-sm">
                                             <span className="font-mono font-medium">{code}</span>
                                             {course && <span className="text-gray-500 ml-1">({course.credits}cr)</span>}
                                         </span>
                                     );
                                 })}
                             </div>
-                            <p className="text-xs text-green-600 mt-2">
-                                Total: {roadmap.reduce((sum, code) => sum + (courseLookup(code)?.credits || 0), 0)} credit hours
-                            </p>
                         </div>
                     )}
                 </div>
 
-                {/* Request History */}
-                {showHistory && (
+                {/* Ticket History */}
+                {showTicketHistory && (
                     <div className="mb-6">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Request History</h3>
-                        {requestHistory.length > 0 ? (
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Ticket History</h3>
+                        {ticketHistory.length > 0 ? (
                             <div className="space-y-2">
-                                {requestHistory.map(req => (
-                                    <div key={req.id} className="border rounded-md p-3 hover:bg-gray-50">
+                                {ticketHistory.map(ticket => (
+                                    <div key={ticket.id} className="border rounded-md p-3 hover:bg-gray-50">
                                         <div className="flex justify-between items-center">
                                             <div>
-                                                <span className="font-mono text-sm font-medium text-indigo-600">{req.id}</span>
-                                                <span className="text-xs text-gray-400 ml-2">{new Date(req.createdAt).toLocaleDateString()}</span>
+                                                <span className="font-mono text-sm font-medium text-indigo-600">{ticket.id}</span>
+                                                <span className="text-xs text-gray-400 ml-2">{new Date(ticket.createdAt).toLocaleDateString()}</span>
                                             </div>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${req.status === 'resolved' ? 'bg-green-100 text-green-700' :
-                                                req.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                                                ticket.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
                                                     'bg-gray-100 text-gray-700'
                                                 }`}>
-                                                {req.status.replace('_', ' ')}
+                                                {ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Resolved'}
                                             </span>
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            {req.recommendedPlan.length} courses • {req.planCredits} credits • {req.major}
-                                        </div>
+                                        <p className="text-sm font-medium text-gray-700 mt-1">{ticket.subject}</p>
+                                        <p className="text-sm text-gray-500 mt-0.5 truncate">{ticket.message}</p>
+                                        {ticket.attachmentName && <p className="text-xs text-blue-500 mt-1">📎 {ticket.attachmentName}</p>}
+                                        {ticket.adminReply && (
+                                            <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                                                <strong>Admin reply:</strong> {ticket.adminReply}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         ) : (
                             <div className="text-center py-4 text-gray-400 text-sm border rounded-md">
-                                No requests found for this student.
+                                No tickets found for this student.
                             </div>
                         )}
                     </div>

@@ -73,6 +73,7 @@ export interface Student {
     major: Major;
     gpa: number;
     passedCourses: string[]; // List of Course Codes
+    failedCourses: string[]; // List of Failed Course Codes
     passedHours: number; // Could be calculated, but good to have explicit
 }
 

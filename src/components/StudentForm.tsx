@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { Major } from '../types';
-import { StudentProfile, GRADES, GRADE_POINTS, PassedCourseRecord, Grade, generateUniversityId } from '../types/student';
+import { StudentProfile, PassedCourseRecord, generateUniversityId, numericToGrade, numericToGradePoints } from '../types/student';
 import { useStudents } from '../context/StudentContext';
 import { useCourses } from '../context/CourseContext';
 import { MAJORS, getCourseRoleInMajor } from '../data/courses';
@@ -29,7 +29,7 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
     const [nationalId, setNationalId] = useState(existingStudent?.nationalId || '');
     const [universityId, setUniversityId] = useState(existingStudent?.universityId || '');
     const [customUniversityId, setCustomUniversityId] = useState(false);
-    const [major, setMajor] = useState<Major>(existingStudent?.major || 'CS');
+    const [major, setMajor] = useState<Major>(existingStudent?.major || 'General');
     const [isTransfer, setIsTransfer] = useState(existingStudent?.isTransfer || false);
     const [previousUniversity, setPreviousUniversity] = useState(existingStudent?.previousUniversity || '');
     const [passedCourses, setPassedCourses] = useState<PassedCourseRecord[]>(existingStudent?.passedCourses || []);
@@ -37,7 +37,7 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
     // Course selection state
     const [courseSearch, setCourseSearch] = useState('');
     const [selectedCourseCode, setSelectedCourseCode] = useState('');
-    const [selectedGrade, setSelectedGrade] = useState<Grade>('Good');
+    const [selectedNumericGrade, setSelectedNumericGrade] = useState<number>(65);
 
     // Errors
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -78,10 +78,12 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
         if (!selectedCourseCode) return;
         if (passedCourses.some(p => p.courseCode === selectedCourseCode)) return;
 
+        const derivedGrade = numericToGrade(selectedNumericGrade);
         const record: PassedCourseRecord = {
             courseCode: selectedCourseCode,
-            grade: selectedGrade,
-            gradePoints: GRADE_POINTS[selectedGrade],
+            grade: derivedGrade,
+            gradePoints: numericToGradePoints(selectedNumericGrade),
+            numericGrade: selectedNumericGrade,
             isTransferred: isTransfer,
         };
         setPassedCourses(prev => [...prev, record]);
@@ -93,11 +95,12 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
         setPassedCourses(prev => prev.filter(p => p.courseCode !== code));
     };
 
-    const handleUpdateGrade = (code: string, grade: Grade) => {
+    const handleUpdateGrade = (code: string, numericValue: number) => {
+        const derivedGrade = numericToGrade(numericValue);
         setPassedCourses(prev =>
             prev.map(p =>
                 p.courseCode === code
-                    ? { ...p, grade, gradePoints: GRADE_POINTS[grade] }
+                    ? { ...p, grade: derivedGrade, gradePoints: numericToGradePoints(numericValue), numericGrade: numericValue }
                     : p
             )
         );
@@ -206,28 +209,34 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
                                         value={universityId}
                                         onChange={e => setUniversityId(e.target.value)}
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 font-mono"
-                                        placeholder="e.g., 2026-0001"
+                                        placeholder="e.g., 20260001"
                                     />
                                 ) : (
-                                    <p className="text-xs text-gray-400 italic">Will be auto-generated (format: YYYY-NNNN)</p>
+                                    <p className="text-xs text-gray-400 italic">Will be auto-generated (format: YYYYNNNN)</p>
                                 )}
                             </div>
                         )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Major</label>
-                            <select
-                                value={major}
-                                onChange={e => setMajor(e.target.value as Major)}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            >
-                                {MAJORS.map(m => (
-                                    <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
-                                ))}
-                                <option value="General">General Program</option>
-                            </select>
-                        </div>
+                        {isEditing ? (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Major</label>
+                                <select
+                                    value={major}
+                                    onChange={e => setMajor(e.target.value as Major)}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                                >
+                                    {MAJORS.map(m => (
+                                        <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
+                                    ))}
+                                    <option value="General">General Program</option>
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="flex items-end">
+                                <p className="text-sm text-gray-500 pb-2">Major: <span className="font-medium text-gray-700">General Program</span> <span className="text-xs text-gray-400">(set by student during registration)</span></p>
+                            </div>
+                        )}
                         <div className="flex items-end">
                             <label className="flex items-center gap-3 cursor-pointer pb-2">
                                 <div className="relative">
@@ -322,15 +331,18 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
                                     </div>
                                 )}
                             </div>
-                            <select
-                                value={selectedGrade}
-                                onChange={e => setSelectedGrade(e.target.value as Grade)}
-                                className="border border-gray-300 rounded-md px-3 py-2 text-sm w-36"
-                            >
-                                {GRADES.map(g => (
-                                    <option key={g} value={g}>{g}</option>
-                                ))}
-                            </select>
+                            <div className="flex items-center gap-1.5 w-44">
+                                <input
+                                    type="number"
+                                    step="1"
+                                    min="0"
+                                    max="100"
+                                    value={selectedNumericGrade}
+                                    onChange={e => setSelectedNumericGrade(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                                    className="border border-gray-300 rounded-md px-2 py-2 text-sm w-20 text-center"
+                                />
+                                <span className="text-xs text-gray-400 whitespace-nowrap">{numericToGrade(selectedNumericGrade)}</span>
+                            </div>
                             <button
                                 onClick={handleAddCourse}
                                 disabled={!selectedCourseCode}
@@ -368,15 +380,18 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
                                                     <td className="px-4 py-2 text-sm text-gray-600">{course?.name || 'Unknown'}</td>
                                                     <td className="px-4 py-2 text-sm text-gray-500">{course?.credits || '-'}</td>
                                                     <td className="px-4 py-2 text-sm">
-                                                        <select
-                                                            value={record.grade}
-                                                            onChange={e => handleUpdateGrade(record.courseCode, e.target.value as Grade)}
-                                                            className="border rounded px-2 py-1 text-sm"
-                                                        >
-                                                            {GRADES.map(g => (
-                                                                <option key={g} value={g}>{g}</option>
-                                                            ))}
-                                                        </select>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <input
+                                                                type="number"
+                                                                step="1"
+                                                                min="0"
+                                                                max="100"
+                                                                value={record.numericGrade ?? record.gradePoints}
+                                                                onChange={e => handleUpdateGrade(record.courseCode, Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                                                                className="border rounded px-2 py-1 text-sm w-16 text-center"
+                                                            />
+                                                            <span className="text-xs text-gray-400">{record.grade}</span>
+                                                        </div>
                                                     </td>
                                                     <td className="px-4 py-2 text-sm text-gray-500">{record.gradePoints.toFixed(1)}</td>
                                                     <td className="px-4 py-2 text-right">

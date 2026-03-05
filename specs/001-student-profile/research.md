@@ -1,6 +1,6 @@
 # Research: Student Profile Feature
 
-**Branch**: `001-student-profile` | **Date**: 2026-02-24
+**Branch**: `001-student-profile` | **Date**: 2026-02-24 | **Updated**: 2026-03-03
 
 ## Decision 1: Storage Pattern
 
@@ -31,69 +31,88 @@
 
 **Key decision**: Failed courses count in GPA calculation (lowering it) but their credit hours do NOT count toward total passed hours or academic level.
 
-## Decision 3: Academic Level Inference
+## Decision 3: Academic Level Inference (UPDATED 2026-03-03)
 
-**Decision**: Derived from total passed credit hours (excluding failed courses).
+**Decision**: Derived from total passed credit hours (excluding failed courses) using updated bylaw thresholds.
 
 | Level | Credit Hours |
 |-------|-------------|
-| 1 | 0–29 |
-| 2 | 30–59 |
-| 3 | 60–89 |
-| 4 | 90+ |
+| 1 (Freshman) | 0–29 |
+| 2 (Sophomore) | 30–65 |
+| 3 (Junior) | 66–101 |
+| 4 (Senior) | 102+ |
 
-**Rationale**: Matches the existing `CourseLevel` type (1–4) in the codebase. Thresholds follow typical Egyptian university bylaws for a 4-year program (~144 total credit hours, ~36 per year).
+**Rationale**: Updated from previous thresholds (30/60/90) to match the official university bylaws. The 140 total credit hours over 4 years distribute as: ~30h (L1), ~36h (L2), ~36h (L3), ~38h (L4).
 
-## Decision 4: Student–Roadmap Integration
+## Decision 4: Recommendation Algorithm Redesign (NEW 2026-03-03)
 
-**Decision**: Convert `StudentProfile` to the existing `Student` type when generating roadmaps. No changes to `roadmapLogic.ts`.
+**Decision**: Replace the existing bucket-first algorithm in `roadmapLogic.ts` with a 4-phase weighted scoring engine.
 
-**Rationale**: The existing `generateRoadmap()` function accepts a `Student` object with `{ major, gpa, passedCourses, passedHours }`. We create a conversion function `toStudentForRoadmap()` that maps stored profile data to this shape, keeping the roadmap engine completely untouched.
+**Current state**: The existing `generateRoadmap()` function in `roadmapLogic.ts` (333 lines) uses a bucket-priority approach with level-first sorting within each bucket. It already handles prerequisites, term filtering, and elective truncation.
 
-## Decision 5: State Management
+**New approach**: 4-phase algorithm:
 
-**Decision**: New `StudentContext` following the same Provider pattern as `CourseContext`.
+1. **Phase 1 — Academic Status Evaluation**: Calculate total earned credits, determine level, calculate CGPA, determine max credit load (12 for CGPA<2.0, 19 otherwise).
 
-**Rationale**: Consistent with the existing architecture. The context provides reactive state updates when students are added/modified/deleted, and components can access student data via `useStudents()` hook.
+2. **Phase 2 — Course Filtering**: Restrict by specialization (general program for levels 1-2, specialization at level 3+), enforce prerequisite checking, truncate elective pools when category requirements met.
 
-## Decision 6: University ID Generation
+3. **Phase 3 — Weight Scoring Engine**: Assign weights to valid courses and sort descending:
+   - Failed/Missed courses (lower levels): weight = 100
+   - Bottleneck prerequisites (courses with many dependents): weight = 50
+   - Current-level mandatory courses: weight = 25
+   - Elective courses: weight = 10
 
-**Decision**: Year-sequence format `YYYY-NNNN` (e.g., `2026-0001`). System generates automatically on profile creation; admin can also enter one manually.
+4. **Phase 4 — Schedule Generation**: Select from priority queue until max load reached. Check graduation alignment (140h, CPGA≥2.0). Enforce summer training constraint (70+ hours blocks summer registration).
+
+**Rationale**: The current algorithm works well for new students but doesn't explicitly prioritize failed courses or bottleneck prerequisites. The weighted scoring approach provides deterministic priority ordering that handles irregular academic paths.
+
+**Integration approach**: Replace the body of `generateRoadmap()` while keeping the same function signature and return type. The existing `Student` interface and `Course` type remain unchanged. The `BucketStatus` return object is preserved for UI display.
+
+## Decision 5: Failed Course Grade Cap (NEW 2026-03-03)
+
+**Decision**: When a student repeats a failed course and passes, the maximum grade recorded is capped at B (grade points = 3.0, 83%).
+
+**Implementation**: Add an `isRepeated` flag to `PassedCourseRecord`. When computing GPA, if `isRepeated === true` and `gradePoints > 3.0`, cap at 3.0.
+
+## Decision 6: Summer Training Constraint (NEW 2026-03-03)
+
+**Decision**: Students with 70+ credit hours who have not completed summer training are blocked from registering for summer semester courses.
+
+**Implementation**: In Phase 4 of the algorithm, if `student.passedHours >= 70` and `currentTerm === 3` (summer) and summer training is not passed, block all summer course recommendations and display a notice.
+
+## Decision 7: University ID Format (UPDATED 2026-03-03)
+
+**Decision**: `YYYYNNNN` format with no hyphen (e.g., `20260001`). System generates automatically on profile creation; admin can also enter one manually.
 
 **Generation logic**: Extract the current year, scan existing profiles for the highest sequence number in that year, increment by 1 with zero-padding to 4 digits.
 
-**Rationale**: Simple, human-readable format that provides uniqueness without requiring external services. The year prefix groups students by enrollment year. Admin override allows importing students with existing IDs.
+**Rationale**: Simple, human-readable format. Updated from `YYYY-NNNN` per user clarification to remove the hyphen.
 
-**Alternatives considered**:
-- UUID: Too long and meaningless for students to remember/type.
-- Program-year-sequence (e.g., `CS-2026-0001`): Rejected because a student may change majors, making the prefix misleading.
-
-## Decision 7: Student Authentication
+## Decision 8: Student Authentication
 
 **Decision**: University ID + National ID pair verification. No passwords needed.
 
 **Flow**: Student enters their University ID in the portal, then provides their National ID for verification. The system checks both match a stored profile before granting access.
 
-**Rationale**: Simplest approach for a client-side system with no backend. National ID serves as a "something you know" factor. No password management, reset flows, or hashing needed.
+## Decision 9: Plan Generation Trigger (NEW 2026-03-03)
 
-**Alternatives considered**:
-- University ID + password: More complex, requires password storage, change flows, and potentially hashing. Overkill for a client-side demo app.
-- University ID only: Too insecure — sequential IDs are easily guessable.
+**Decision**: Lazy generation — plans are auto-generated when the student logs in to the portal. Admins can also manually generate a plan from the student profile view.
 
-## Decision 8: Request–Student Linkage
+**Blocked students**: Blocked students cannot see their semester plan. They can only view their profile and request history.
 
-**Decision**: Use the existing `studentId` field in `StudentRequest` as the University ID linkage. Add a `getRequestsByStudentId()` function to query all requests for a given student.
+## Decision 10: UI Redesign Approach (NEW 2026-03-03)
 
-**Rationale**: The `studentId` field already exists in `StudentRequest` and is populated when students submit requests in the portal. By matching this to `StudentProfile.universityId`, we get request history without changing the existing request schema.
+**Decision**: Full UI overhaul to match faculty branding: primary color `#0160C9`, faculty logo (`cai-logo.png`), modern professional design, social media footer.
 
-## Decision 9: Student Portal Enhancement vs. Separate Dashboard
+**Implementation approach**:
+- Replace all existing indigo/purple colors with `#0160C9` and its variants
+- Add the `cai-logo.png` from `/resources/` to the header
+- Add a footer component with social media links
+- Use modern design patterns: glassmorphism cards, smooth transitions, gradient backgrounds
+- Maintain responsive layout with TailwindCSS
 
-**Decision**: Enhance the existing `StudentPortal.tsx` with an authentication gate and dashboard view. No separate student dashboard page.
-
-**Rationale**: The user explicitly stated no separate dashboard is needed. The existing portal already has the request submission flow; adding an auth gate + history view keeps everything in one place and avoids router/navigation changes.
-
-## Decision 10: Blocked Student Behavior
-
-**Decision**: Read-only access. Blocked students can authenticate and view their profile and request history, but see a "Blocked" banner and cannot submit new requests.
-
-**Rationale**: Provides transparency (student knows they're blocked and can still see their academic data) without allowing any new actions. The submit button is disabled with a clear explanation.
+**Color palette derived from #0160C9**:
+- Primary: `#0160C9` (faculty blue)
+- Primary light: `#3B82F6` (hover/active)
+- Primary dark: `#014A9A` (dark variant)
+- Accent: `#E0EDFF` (light backgrounds)

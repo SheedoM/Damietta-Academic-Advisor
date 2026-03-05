@@ -26,19 +26,53 @@ export interface PassedCourseRecord {
     courseCode: string;
     grade: Grade;
     gradePoints: number;
+    numericGrade?: number;  // actual numeric grade (0-100)
     isTransferred: boolean; // true if from previous university
+    isRepeated?: boolean;   // true if course was previously failed and re-taken
+}
+
+/**
+ * Map a numeric grade (0–100) to the nearest Grade label.
+ */
+export function numericToGrade(n: number): Grade {
+    if (n >= 90) return 'Excellent';
+    if (n >= 75) return 'Very Good';
+    if (n >= 65) return 'Good';
+    if (n >= 50) return 'Pass';
+    return 'Fail';
+}
+
+/**
+ * Convert a 0–100 numeric grade to a 0.0–4.0 grade point for GPA.
+ */
+export function numericToGradePoints(n: number): number {
+    if (n >= 90) return 4.0;
+    if (n >= 75) return 3.0;
+    if (n >= 65) return 2.0;
+    if (n >= 50) return 1.0;
+    return 0.0;
+}
+
+// Approved semester plan (set by admin)
+export interface ApprovedPlan {
+    courses: string[];       // Course codes
+    credits: number;
+    semester: string;        // e.g., "Fall 2026"
+    approvedAt: string;      // ISO 8601
 }
 
 // Full student profile
 export interface StudentProfile {
     nationalId: string;       // Unique identifier
-    universityId: string;     // System-generated, format: YYYY-NNNN (e.g., 2026-0001)
+    universityId: string;     // System-generated, format: YYYYNNNN (e.g., 20260001)
     name: string;
     major: Major;
     isTransfer: boolean;
     previousUniversity?: string;
     isBlocked: boolean;       // Default: false. Blocked students have read-only portal access.
     passedCourses: PassedCourseRecord[];
+    profilePicture?: string;  // Base64 data URL for profile photo
+    approvedPlan?: ApprovedPlan; // Admin-approved plan for next semester
     createdAt: string;        // ISO 8601
     updatedAt: string;        // ISO 8601
 }
@@ -65,20 +99,20 @@ export function getStudentByUniversityId(universityId: string): StudentProfile |
 }
 
 /**
- * Generate a University ID in YYYY-NNNN format.
+ * Generate a University ID in YYYYNNNN format.
  * Scans existing profiles for the highest sequence number in the current year,
  * then increments by 1.
  */
 export function generateUniversityId(): string {
     const year = new Date().getFullYear();
-    const yearPrefix = `${year}-`;
+    const yearStr = String(year);
     const existingIds = getAllStudents()
         .map(p => p.universityId)
-        .filter(id => id && id.startsWith(yearPrefix))
-        .map(id => parseInt(id.split('-')[1], 10))
+        .filter(id => id && id.startsWith(yearStr))
+        .map(id => parseInt(id.slice(4), 10))
         .filter(n => !isNaN(n));
     const nextSeq = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
-    return `${year}-${String(nextSeq).padStart(4, '0')}`;
+    return `${year}${String(nextSeq).padStart(4, '0')}`;
 }
 
 export function saveStudent(student: StudentProfile): void {

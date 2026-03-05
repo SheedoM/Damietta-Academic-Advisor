@@ -1,18 +1,21 @@
-# Implementation Plan: Comprehensive Student Profile
+# Implementation Plan: Student Profile — Algorithm Redesign + UI Overhaul
 
-**Branch**: `001-student-profile` | **Date**: 2026-02-24 | **Spec**: [spec.md](file:///F:/Coding%20projects/damietta-university-academic-advisor/specs/001-student-profile/spec.md)
-**Input**: Feature specification from `/specs/001-student-profile/spec.md`
+**Branch**: `001-student-profile` | **Date**: 2026-03-03 | **Spec**: [spec.md](file:///F:/Coding%20projects/damietta-university-academic-advisor/specs/001-student-profile/spec.md)
+**Input**: Revised feature specification from `/specs/001-student-profile/spec.md`
 
 ## Summary
 
-Enhance the existing academic advisor application with a comprehensive student profile system. This includes: adding University ID generation and blocked status to student profiles, implementing University ID + National ID pair authentication in the existing student portal, linking registration requests to student profiles for historical tracking, enabling admin blocking/unblock functionality, and enhancing the student portal to show academic status and request history for authenticated students.
+This revision adds three major workstreams to the existing student profile feature:
+1. **Recommendation algorithm redesign** — Replace the bucket-first algorithm with a 4-phase weighted scoring engine (academic status evaluation → course filtering → weight scoring → schedule generation)
+2. **UI overhaul** — Rebrand the entire application to match faculty styling (`#0160C9`, `cai-logo.png`, social footer, modern professional design)
+3. **Data model updates** — University ID format change to `YYYYNNNN` (no hyphen), updated academic level thresholds (30/66/102), `isRepeated` field for failed course grade cap, lazy plan generation on student login, blocked students can't view plan
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x + React 18.x  
-**Primary Dependencies**: Vite, React, Lucide React (icons), Tailwind CSS  
+**Primary Dependencies**: Vite, React, Tailwind CSS  
 **Storage**: localStorage (client-side only, no backend)  
-**Testing**: No existing test framework; manual browser verification  
+**Testing**: No automated test framework; TypeScript compilation + manual browser verification  
 **Target Platform**: Web browser (desktop)  
 **Project Type**: Single-page web application  
 **Constraints**: Client-side only, all data in localStorage  
@@ -32,8 +35,8 @@ specs/001-student-profile/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output (updated)
 ├── data-model.md        # Phase 1 output (updated)
-├── quickstart.md        # Phase 1 output (updated)
-└── tasks.md             # Phase 2 output
+├── quickstart.md        # Phase 1 output
+└── tasks.md             # Phase 2 output (to be regenerated)
 ```
 
 ### Source Code (repository root)
@@ -41,114 +44,165 @@ specs/001-student-profile/
 ```text
 src/
 ├── types/
-│   ├── index.ts          # Core types (Student, Course, Major, Term, etc.)
-│   ├── request.ts        # StudentRequest type + CRUD (MODIFY: add getRequestsByStudentId)
-│   └── student.ts        # StudentProfile type + CRUD (MODIFY: add universityId, isBlocked, ID generation)
+│   ├── index.ts          # Core types (Student, Course, BucketPriority, etc.) — NO CHANGES
+│   ├── request.ts        # StudentRequest type + CRUD — NO CHANGES
+│   └── student.ts        # StudentProfile type + CRUD — MODIFY (YYYYNNNN format, isRepeated)
 ├── lib/
-│   ├── gradeUtils.ts     # GPA, level, roadmap conversion utils (existing, minor updates)
-│   └── roadmapLogic.ts   # Roadmap engine (NO CHANGES)
+│   ├── gradeUtils.ts     # GPA, level, roadmap conversion — MODIFY (level thresholds, grade cap)
+│   └── roadmapLogic.ts   # Roadmap engine — REWRITE (4-phase weighted scoring)
 ├── context/
-│   ├── CourseContext.tsx  # Course state provider (NO CHANGES)
-│   └── StudentContext.tsx # Student state provider (MODIFY: expose lookup by universityId)
+│   ├── CourseContext.tsx  # Course state provider — NO CHANGES
+│   └── StudentContext.tsx # Student state provider — NO CHANGES
 ├── components/
-│   ├── StudentForm.tsx    # Form for creating/editing students (MODIFY: add universityId, remove courses for non-transfer)
-│   ├── StudentProfileView.tsx # Profile viewer (MODIFY: add universityId display, block toggle)
-│   └── StudentPlanEditor.tsx  # Plan editor (NO CHANGES)
+│   ├── StudentForm.tsx    # Student create/edit form — MODIFY (YYYYNNNN display)
+│   ├── StudentProfileView.tsx # Profile viewer — MODIFY (academic observation, plan generation)
+│   ├── StudentPlanEditor.tsx  # Plan editor — NO CHANGES
+│   ├── Header.tsx         # NEW — Shared header with logo
+│   └── Footer.tsx         # NEW — Shared footer with social links
 ├── pages/
-│   ├── AdminDashboard.tsx # Admin UI (MODIFY: add block/unblock button, show universityId)
-│   └── StudentPortal.tsx  # Student UI (MODIFY: add auth gate, request history, academic status view)
+│   ├── AdminDashboard.tsx # Admin UI — MODIFY (branding, observation badge)
+│   └── StudentPortal.tsx  # Student UI — MODIFY (branding, lazy plan gen, blocked plan hiding)
 ├── data/
-│   ├── courses.ts         # Course data entry point (NO CHANGES)
-│   └── courseDatabase.ts   # Course database (NO CHANGES)
-├── App.tsx               # App root (NO CHANGES — already has StudentProvider)
-└── main.tsx              # Entry point (NO CHANGES)
+│   ├── courses.ts         # Course data entry point — NO CHANGES
+│   └── courseDatabase.ts  # Course database — NO CHANGES
+├── App.tsx               # App root — MODIFY (add Header + Footer wrapper)
+├── index.css             # Global styles — MODIFY (brand colors, modern design tokens)
+├── main.tsx              # Entry point — NO CHANGES
+└── vite-env.d.ts         # Vite types — NO CHANGES
 ```
 
-**Structure Decision**: Single-project React SPA. All changes are within the existing `src/` directory following established patterns.
+**Structure Decision**: Single-project React SPA. All changes within existing `src/` directory. Two new components (`Header.tsx`, `Footer.tsx`) for shared branding.
 
 ---
 
 ## Proposed Changes
 
-### Component 1: Data Layer — Types & Storage
+### Component 1: Data Layer Updates
 
-> Add University ID, blocked status to student profile; add request lookup by student ID.
+> University ID format change, isRepeated field, academic level threshold update.
 
 #### [MODIFY] [student.ts](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/types/student.ts)
 
-- Add `universityId: string` field to `StudentProfile` interface
-- Add `isBlocked: boolean` field to `StudentProfile` interface (default: `false`)
-- Add `generateUniversityId(): string` function — format `YYYY-NNNN` using current year + sequential counter from existing profiles
-- Add `getStudentByUniversityId(universityId: string): StudentProfile | undefined` lookup function
-- Update `saveStudent()` to auto-generate `universityId` if not provided
-- Update `studentExists()` to also check university ID uniqueness
+- Change `universityId` format from `YYYY-NNNN` to `YYYYNNNN` (no hyphen)
+- Update `generateUniversityId()` to produce hyphen-free IDs
+- Add `isRepeated: boolean` field to `PassedCourseRecord` interface (default: `false`)
 
-#### [MODIFY] [request.ts](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/types/request.ts)
+#### [MODIFY] [gradeUtils.ts](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/lib/gradeUtils.ts)
 
-- Add `getRequestsByStudentId(studentId: string): StudentRequest[]` function — returns all requests where `studentId` matches, sorted by `createdAt` descending
-
----
-
-### Component 2: State Management
-
-> Expose new lookup functions through context.
-
-#### [MODIFY] [StudentContext.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/context/StudentContext.tsx)
-
-- Add `getStudentByUniversityId(universityId: string)` to context value
-- Add `toggleBlock(nationalId: string)` to context value — flips `isBlocked`
-- Ensure context consumers can access the new functions
+- Update `inferAcademicLevel()` thresholds: 30 → 2, 66 → 3, 102 → 4 (was 30/60/90)
+- Update `calculateGPA()` to cap grade points at 3.0 for records where `isRepeated === true`
+- Add `getAcademicStanding(gpa: number): 'Good' | 'Observation'` helper
+- Add `getMaxCreditLoad(gpa: number): number` helper (returns 12 if GPA < 2.0, 19 otherwise)
 
 ---
 
-### Component 3: Admin UI Enhancements
+### Component 2: Recommendation Algorithm Redesign
 
-> University ID display, block/unblock toggle, restrict course entry to transfer students.
+> Replace the bucket-first algorithm with 4-phase weighted scoring engine.
 
-#### [MODIFY] [StudentForm.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/components/StudentForm.tsx)
+#### [MODIFY] [roadmapLogic.ts](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/lib/roadmapLogic.ts)
 
-- Add read-only University ID field (auto-generated on create, displayed on edit)
-- Allow admin to optionally enter a custom University ID on create
-- Hide the passed courses section when Transfer Student toggle is OFF (new students start with zero courses)
-- Show passed courses section only when Transfer Student toggle is ON
+**Major rewrite** of the `generateRoadmap()` function while preserving its signature and return type.
 
-#### [MODIFY] [StudentProfileView.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/components/StudentProfileView.tsx)
+**Phase 1 — Academic Status Evaluation** (replaces inline GPA/load check):
+- Calculate total earned credits
+- Determine academic level using updated thresholds (30/66/102)
+- Calculate CGPA and determine academic standing
+- Set max credit load (12 for observation, 19 for good standing)
 
-- Display University ID prominently in profile header
-- Add block/unblock toggle button with visual indicator (red badge if blocked)
-- Show request history for the student (using `getRequestsByStudentId`)
+**Phase 2 — Course Filtering** (replaces bucket population):
+- Major filtering: general program for levels 1–2, specialization at level 3+
+- Prerequisite checking: exclude courses with unmet prereqs
+- Elective truncation: stop recommending from categories where credit requirements are met
+
+**Phase 3 — Weight Scoring Engine** (replaces level-first sorting):
+- Score every valid course with weights:
+  - Failed/missed mandatory courses from lower levels: **100**
+  - Bottleneck prerequisites (courses that unlock many future requirements): **50**
+  - Current-level mandatory courses: **25**
+  - Elective courses: **10**
+- Sort descending by weight, then by chain depth as tiebreaker
+
+**Phase 4 — Schedule Generation** (replaces sequential fill):
+- Select courses from priority queue until max credit load reached
+- Graduation check: track progress toward 140 credit hours with CGPA ≥ 2.0
+- Summer training constraint: if `passedHours >= 70` and `currentTerm === 3` and summer training not passed, block all course recommendations
+
+**Preserved**: Function signature `generateRoadmap(student, currentTerm, coursesInput?)`, return type `{ roadmap, log, bucketStatuses }`, existing helper functions for prerequisite checking and dependent counting.
+
+---
+
+### Component 3: UI Branding & Layout
+
+> Modern faculty-branded UI with logo, primary color, and social footer.
+
+#### [NEW] [Header.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/components/Header.tsx)
+
+- Faculty logo (`cai-logo.png`) displayed on left
+- Application title
+- Navigation links (Student Portal / Admin Dashboard)
+- User context (logged-in student name or admin indicator)
+- Uses `#0160C9` as primary color
+
+#### [NEW] [Footer.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/components/Footer.tsx)
+
+- Social media links: Facebook, Twitter/X, LinkedIn, university website
+- "Developed by FaragallahTech © 2026" with `FaragallahTech logo.png` from resources folder
+- Copyright notice
+- Faculty contact info
+- Uses `#0160C9` theme
+
+#### [MODIFY] [index.css](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/index.css)
+
+- Add CSS custom properties for brand colors:
+  - `--brand-primary: #0160C9`
+  - `--brand-primary-dark: #014A9A`
+  - `--brand-primary-light: #3B82F6`
+  - `--brand-accent: #E0EDFF`
+- Add modern design tokens (shadows, border radius, transitions)
+- Override Tailwind's default indigo with brand blue
+
+#### [MODIFY] [tailwind.config.js](file:///F:/Coding%20projects/damietta-university-academic-advisor/tailwind.config.js)
+
+- Extend theme colors to include `brand` color palette based on `#0160C9`
+- Add custom font family (Inter from Google Fonts)
+
+#### [MODIFY] [App.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/App.tsx)
+
+- Wrap routes with shared `Header` and `Footer` components
+- Add consistent page layout container
 
 #### [MODIFY] [AdminDashboard.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/pages/AdminDashboard.tsx)
 
-- Show University ID column in student list table
-- Add blocked status indicator (badge/icon) in student list
-- Add block/unblock action button in student list or profile view
-- Enable search by University ID in addition to name/national ID
-
----
-
-### Component 4: Student Portal Enhancement
-
-> The most significant change: add auth gate, request history, and academic status to the existing portal.
+- Replace all `indigo-*` / `blue-*` / `purple-*` color classes with `brand-*` equivalents
+- Remove inline header (now in shared Header component)
+- Add "Academic Observation" badge for students with CGPA < 2.0
+- Update login page styling to match brand
 
 #### [MODIFY] [StudentPortal.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/pages/StudentPortal.tsx)
 
-**New flow (two paths):**
+- Replace all `indigo-*` color classes with `brand-*` equivalents
+- Remove inline header (now in shared Header component)
+- **Lazy plan generation**: auto-generate plan on student login (dashboard view)
+- **Blocked student plan hiding**: hide semester plan section when student is blocked
+- Update the navigation bar styling
 
-1. **Unauthenticated path** (existing flow): Student enters details → selects courses → generates plan → submits request. The `studentId` field in this flow becomes the University ID.
+#### [MODIFY] [StudentForm.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/components/StudentForm.tsx)
 
-2. **Authenticated path** (NEW): Student enters University ID + National ID → system verifies the pair → shows:
-   - Academic status (GPA, level, passed hours, major)
-   - Request history across semesters (all past requests)
-   - Option to submit a new registration request (pre-populated with profile data)
-   - If blocked: show "Blocked" banner, disable request submission
+- Update University ID display format to `YYYYNNNN`
+- Replace color classes with brand equivalents
 
-**Implementation approach:**
-- Add a new `ViewMode` option: `'auth'` — shown as an entry point alongside the existing flow
-- Add `'dashboard'` view mode — shown after successful authentication
-- Add `'history'` view mode — shows all past requests for the authenticated student
-- The existing `'input' → 'courses' → 'plan' → 'submit'` flow remains for new/unauthenticated students
-- When authenticated, the request submission flow pre-populates student data from the profile
+#### [MODIFY] [StudentProfileView.tsx](file:///F:/Coding%20projects/damietta-university-academic-advisor/src/components/StudentProfileView.tsx)
+
+- Add "Academic Observation" warning for CGPA < 2.0
+- Add "Generate Plan" button for admin on-demand plan generation
+- Replace color classes with brand equivalents
+- Show `isRepeated` indicator on course records
+
+#### [MODIFY] [index.html](file:///F:/Coding%20projects/damietta-university-academic-advisor/index.html)
+
+- Add Google Fonts link for Inter font family
+- Update page title and meta description
 
 ---
 
@@ -156,7 +210,7 @@ src/
 
 ### Automated Tests
 
-No automated test framework exists in this project. TypeScript compilation serves as the primary automated check:
+No automated test framework exists. TypeScript compilation is the primary check:
 
 ```bash
 npx tsc --noEmit
@@ -173,23 +227,29 @@ npm run dev
 
 **Test Scenarios (in order):**
 
-1. **Admin creates a student** — Navigate to Admin Dashboard → Students tab → Add Student → enter name + national ID + major → verify University ID is auto-generated in `YYYY-NNNN` format → verify student appears in list with University ID column
+1. **Algorithm: New student standard plan** — Create a new CS student with no courses → Generate plan for Term 1 → Verify the output contains standard Level 1 Term 1 courses matching the bylaws
 
-2. **Admin creates a transfer student** — Add Student → enable Transfer toggle → enter previous university → add passed courses with grades → verify GPA and level compute correctly → verify University ID generated
+2. **Algorithm: Failed course priority** — Add a student with CS102 marked as Failed + other passed courses → Generate plan → Verify CS102 appears first in the recommended plan
 
-3. **Non-transfer student has no course section** — Add Student → leave Transfer toggle OFF → verify no passed courses section appears
+3. **Algorithm: Academic observation load limit** — Set up a student with CGPA < 2.0 → Generate plan → Verify total credit load does not exceed 12 hours → Verify "Academic Observation" warning is displayed
 
-4. **Admin blocks a student** — Select a student → click block button → verify blocked badge appears in student list and profile view
+4. **Algorithm: Elective truncation** — Set up a student who has completed 12 optional credit hours for their major → Generate plan → Verify no additional electives from that pool appear
 
-5. **Student authenticates in portal** — Go to Student Portal → enter University ID + National ID → verify access is granted → verify academic status displays correctly
+5. **Algorithm: Summer training constraint** — Set up a student with 70+ credit hours → Generate plan for Term 3 (summer) → Verify summer courses are blocked and training notice is shown
 
-6. **Student views request history** — After authenticating, verify all past requests for that student are listed chronologically
+6. **Algorithm: Repeated course grade cap** — Add a course with `isRepeated: true` and grade Excellent → Verify GPA calculation uses 3.0 (B) instead of 4.0
 
-7. **Blocked student sees read-only view** — Authenticate as a blocked student → verify "Blocked" banner appears → verify submit button is disabled → verify profile and history are still visible
+7. **University ID format** — Create a new student → Verify the generated University ID has format `YYYYNNNN` (no hyphen, e.g., `20260001`)
 
-8. **Student submits new request** — Authenticate → submit new registration request → verify it appears in request history and in admin dashboard
+8. **Level thresholds** — Add courses to reach exactly 66 credit hours → Verify academic level shows Level 3 (was Level 2 under old thresholds)
 
-9. **Data persists across refresh** — Create student, submit requests, refresh page → verify all data is preserved
+9. **Student login + lazy plan** — Go to Student Portal → Login with University ID + National ID → Verify plan is auto-generated and displayed
+
+10. **Blocked student plan hiding** — Login as a blocked student → Verify "Blocked" banner appears → Verify semester plan section is NOT visible → Verify profile and request history are still visible
+
+11. **UI branding** — Verify the logo appears in the header on every page → Verify primary color is `#0160C9` (not indigo) → Verify footer with social links is visible → Verify responsive layout
+
+12. **Data persistence** — Create student, generate plan, refresh page → Verify all data persists
 
 ## Complexity Tracking
 
