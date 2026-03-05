@@ -58,6 +58,23 @@ The current system operates on local persistence. The next phase involves:
 - **Multi-User Sync** — Real-time updates when an advisor approves a plan, immediately notifying the student.
 - **Student Authentication** — Moving from ID-based lookup to secure JWT-based authentication.
 
+### 🔐 Admin Security
+The current admin gateway is a basic entry check. Future security hardening includes:
+- **Server-side Authentication** — Proper session management with secure cookie/JWT handling.
+- **Role-Based Access Control** — Granular permissions for Super-Admins, Department Advisors, and Read-only staff.
+- **System Audit Logs** — Tracking all manual modifications to student grades and course catalogs.
+
+### 🧮 Roadmap Algorithm Evolution
+Moving beyond the current priority-bucket logic towards a more dynamic model:
+- **Weighted Scoring System** — A unified algorithm that weights prerequisites, difficulty, and term-priority.
+- **Multi-Semester Pathfinding** — Generating a complete path to graduation from the student's current state.
+- **Elective slot Optimization** — Smarter automatic selection of electives based on prerequisite chains.
+
+### 🎨 Advanced UX & Exports
+- **Responsive Mobile Dashboard** — Full support for student mobile views during registration peaks.
+- **Dark Mode Support** — A premium dark theme for modern university aesthetics.
+- **Print-Friendly Graduation Plans** — High-quality PDF exports for student portfolios.
+
 ### 🤖 AI-Powered Academic Bot
 Integration of a Large Language Model (LLM) to act as a 24/7 Academic Assistant:
 - **Plan Explanation** — Bot explains the logic behind specific course sequences based on bylaws.
