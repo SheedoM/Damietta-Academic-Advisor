@@ -9,7 +9,7 @@ import {
     updateTicketStatus,
 } from '../types/ticket';
 import { useStudents } from '../context/StudentContext';
-import { StudentProfile } from '../types/student';
+import { StudentProfile, StudentPlan } from '../types/student';
 import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassification, toStudentForRoadmap } from '../lib/gradeUtils';
 import { generateRoadmap } from '../lib/roadmapLogic';
 import { StudentForm } from '../components/StudentForm';
@@ -99,17 +99,15 @@ function AdminDashboard() {
     const [ticketReply, setTicketReply] = useState('');
 
 
+    const [studentSearch, setStudentSearch] = useState('');
 
     // Student management state
     const { students, updateStudent } = useStudents();
+
+    const [selectedStudent, setSelectedStudent] = useState<StudentProfile | undefined>(undefined);
     const [showStudentForm, setShowStudentForm] = useState(false);
     const [editingStudent, setEditingStudent] = useState<StudentProfile | undefined>(undefined);
-    const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null);
-    const [studentSearch, setStudentSearch] = useState('');
-
-    // Bulk Plan Generation State
     const [bulkPlanSemester, setBulkPlanSemester] = useState('Fall 2026');
-    const [bulkPlanTerm, setBulkPlanTerm] = useState<Term>(1);
     const [bulkSuccessMsg, setBulkSuccessMsg] = useState('');
 
     const courseLookupFn = (code: string) => courses.find(c => c.code === code);
@@ -177,10 +175,14 @@ function AdminDashboard() {
 
     const handleGeneratePlansForAll = () => {
         let generatedCount = 0;
+
+        // Infer term from semester string (e.g., Spring = 2, Fall = 1)
+        const inferredTerm: Term = bulkPlanSemester.toLowerCase().includes('spring') ? 2 : 1;
+
         students.forEach(student => {
             const roadmapStudent = toStudentForRoadmap(student, courseLookupFn);
             const availableCourses = courses.filter(c => c.available !== false);
-            const { roadmap } = generateRoadmap(roadmapStudent, bulkPlanTerm, availableCourses);
+            const { roadmap } = generateRoadmap(roadmapStudent, inferredTerm, availableCourses);
 
             const roadmapCodes = roadmap.map(c => typeof c === 'string' ? c : (c as Course).code);
             const credits = roadmap.reduce((sum, c) => {
@@ -189,20 +191,28 @@ function AdminDashboard() {
             }, 0);
 
             if (roadmap.length > 0) {
+                const newPlan: StudentPlan = {
+                    id: `plan-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                    semester: bulkPlanSemester,
+                    status: 'draft',
+                    courses: roadmapCodes,
+                    credits,
+                    generatedAt: new Date().toISOString(),
+                };
+
+                // Remove any existing plan for this semester to prevent duplicates
+                const existingPlans = student.plans || [];
+                const filteredPlans = existingPlans.filter(p => p.semester !== bulkPlanSemester);
+
                 updateStudent({
                     ...student,
-                    approvedPlan: {
-                        courses: roadmapCodes,
-                        credits,
-                        semester: bulkPlanSemester,
-                        approvedAt: new Date().toISOString(),
-                    },
+                    plans: [...filteredPlans, newPlan],
                 });
                 generatedCount++;
             }
         });
 
-        setBulkSuccessMsg(`Successfully generated and approved plans for ${generatedCount} students.`);
+        setBulkSuccessMsg(`Successfully generated draft plans for ${generatedCount} students.`);
         setTimeout(() => setBulkSuccessMsg(''), 5000);
     };
 
@@ -545,30 +555,27 @@ function AdminDashboard() {
                                 <div className="bg-university/5 rounded-2xl p-5 border border-university/10 flex items-center justify-between shadow-sm">
                                     <div>
                                         <h3 className="text-sm font-bold text-university-900 mb-1">Bulk Generate Plans</h3>
-                                        <p className="text-xs text-university-700/80">Automatically create and approve degree plans for all registered students.</p>
+                                        <p className="text-xs text-university-700/80">Automatically create draft degree plans for all registered students.</p>
                                     </div>
                                     <div className="flex gap-3 items-center">
                                         {bulkSuccessMsg && <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-lg">{bulkSuccessMsg}</span>}
-                                        <input
-                                            type="text"
+                                        <select
                                             value={bulkPlanSemester}
                                             onChange={e => setBulkPlanSemester(e.target.value)}
-                                            className="w-32 bg-white border border-university-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none"
-                                            placeholder="Semester"
-                                        />
-                                        <select
-                                            value={bulkPlanTerm}
-                                            onChange={e => setBulkPlanTerm(Number(e.target.value) as Term)}
-                                            className="bg-white border border-university-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none"
+                                            className="w-48 bg-white border border-university-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none cursor-pointer"
                                         >
-                                            <option value={1}>Fall (T1)</option>
-                                            <option value={2}>Spring (T2)</option>
+                                            <option value="Fall 2026">Fall 2026</option>
+                                            <option value="Spring 2027">Spring 2027</option>
+                                            <option value="Fall 2027">Fall 2027</option>
+                                            <option value="Spring 2028">Spring 2028</option>
+                                            <option value="Fall 2028">Fall 2028</option>
+                                            <option value="Spring 2029">Spring 2029</option>
                                         </select>
                                         <button
                                             onClick={handleGeneratePlansForAll}
                                             className="px-5 py-2 bg-university text-white rounded-xl hover:bg-university-600 font-bold text-sm shadow-md shadow-university/20 transition-all flex items-center gap-2"
                                         >
-                                            <span>⚡</span> Generate for All
+                                            <span>⚡</span> Generate Drafts
                                         </button>
                                     </div>
                                 </div>
@@ -582,14 +589,14 @@ function AdminDashboard() {
                                             placeholder="Search students by name, national ID, or university ID..."
                                             value={studentSearch}
                                             onChange={e => setStudentSearch(e.target.value)}
-                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all"
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all text-gray-900 placeholder-gray-400"
                                         />
                                     </div>
                                     <button
                                         onClick={() => { setEditingStudent(undefined); setShowStudentForm(true); }}
-                                        className="px-6 py-3 bg-university text-white rounded-xl hover:bg-university-600 font-bold text-sm shadow-md shadow-university/20 transition-all flex items-center gap-2"
+                                        className="px-6 py-3 bg-university text-white rounded-xl hover:bg-university-600 font-bold text-sm shadow-md shadow-university/20 transition-all flex items-center gap-2 border border-university-600"
                                     >
-                                        <span>+</span> Add Student
+                                        <span className="text-white">+</span> <span className="text-white">Add Student</span>
                                     </button>
                                 </div>
 
@@ -672,8 +679,8 @@ function AdminDashboard() {
                                 {selectedStudent && (
                                     <StudentProfileView
                                         student={selectedStudent}
-                                        onClose={() => setSelectedStudent(null)}
-                                        onDeleted={() => setSelectedStudent(null)}
+                                        onClose={() => setSelectedStudent(undefined)}
+                                        onDeleted={() => setSelectedStudent(undefined)}
                                         onUpdated={() => {
                                             // Refresh happens via context
                                         }}

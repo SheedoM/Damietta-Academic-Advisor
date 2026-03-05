@@ -12,6 +12,7 @@ import { useStudents } from '../context/StudentContext';
 import { getCourseRoleInMajor, COURSES_DATABASE, MAJORS } from '../data/courses';
 import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassification } from '../lib/gradeUtils';
 import { StudentProfile, PassedCourseRecord, generateUniversityId, numericToGrade, numericToGradePoints } from '../types/student';
+import { PrerequisiteGraph } from '../components/PrerequisiteGraph';
 
 
 type ViewMode = 'login' | 'register' | 'dashboard' | 'courses' | 'ticket';
@@ -89,6 +90,7 @@ function StudentPortal() {
 
     // View state
     const [viewMode, setViewMode] = useState<ViewMode>('login');
+    const [courseViewType, setCourseViewType] = useState<'list' | 'graph'>('graph');
 
     // Ticket submission state
     const [ticketSubject, setTicketSubject] = useState('');
@@ -587,36 +589,42 @@ function StudentPortal() {
                             </div>
 
                             <div className="space-y-6">
-                                {/* Approved Plan (from admin) */}
-                                {authenticatedStudent.approvedPlan ? (
-                                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 h-full flex flex-col">
-                                        <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-4">
-                                            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                                Approved Plan
-                                            </h3>
-                                            <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">{authenticatedStudent.approvedPlan.semester}</span>
-                                        </div>
-                                        <div className="bg-green-50/50 border border-green-100 rounded-xl p-4 mb-4 text-center">
-                                            <div className="text-2xl font-extrabold text-green-700">{authenticatedStudent.approvedPlan.credits} <span className="text-sm font-bold text-gray-500">Cr</span></div>
-                                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-1">{authenticatedStudent.approvedPlan.courses.length} Courses</div>
-                                        </div>
-                                        <div className="flex-1 overflow-y-auto pr-1">
-                                            <ul className="space-y-2">
-                                                {authenticatedStudent.approvedPlan.courses.map(code => {
-                                                    const course = courses.find(c => c.code === code);
-                                                    return (
-                                                        <li key={code} className="flex justify-between items-center group">
-                                                            <div>
-                                                                <span className="font-bold text-sm text-gray-900 group-hover:text-university transition-colors">{code}</span>
-                                                            </div>
-                                                            <span className="font-bold text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{course?.credits || '?'}</span>
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
-                                        </div>
-                                        <p className="text-[10px] font-bold text-gray-400 mt-4 text-center uppercase tracking-widest pt-4 border-t border-gray-50">Approved: {new Date(authenticatedStudent.approvedPlan.approvedAt).toLocaleDateString()}</p>
+                                {/* Approved Plans (from admin) */}
+                                {authenticatedStudent.plans && authenticatedStudent.plans.filter(p => p.status === 'approved').length > 0 ? (
+                                    <div className="space-y-6">
+                                        {authenticatedStudent.plans.filter(p => p.status === 'approved')
+                                            .sort((a, b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime())
+                                            .map(plan => (
+                                                <div key={plan.id} className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 h-full flex flex-col">
+                                                    <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-4">
+                                                        <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                                                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                            Approved Plan
+                                                        </h3>
+                                                        <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">{plan.semester}</span>
+                                                    </div>
+                                                    <div className="bg-green-50/50 border border-green-100 rounded-xl p-4 mb-4 text-center">
+                                                        <div className="text-2xl font-extrabold text-green-700">{plan.credits} <span className="text-sm font-bold text-gray-500">Cr</span></div>
+                                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-1">{plan.courses.length} Courses</div>
+                                                    </div>
+                                                    <div className="flex-1 overflow-y-auto pr-1">
+                                                        <ul className="space-y-2">
+                                                            {plan.courses.map(code => {
+                                                                const course = courses.find(c => c.code === code);
+                                                                return (
+                                                                    <li key={code} className="flex justify-between items-center group">
+                                                                        <div>
+                                                                            <span className="font-bold text-sm text-gray-900 group-hover:text-university transition-colors">{code}</span>
+                                                                        </div>
+                                                                        <span className="font-bold text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{course?.credits || '?'}</span>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    </div>
+                                                    <p className="text-[10px] font-bold text-gray-400 mt-4 text-center uppercase tracking-widest pt-4 border-t border-gray-50">Approved: {plan.approvedAt ? new Date(plan.approvedAt).toLocaleDateString() : 'Unknown'}</p>
+                                                </div>
+                                            ))}
                                     </div>
                                 ) : (
                                     <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center h-full flex flex-col justify-center items-center">
@@ -705,99 +713,117 @@ function StudentPortal() {
                                 <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Remaining Courses</h2>
                                 <p className="text-sm font-bold text-gray-500 uppercase tracking-wide mt-1">{remainingHours} credit hours until graduation</p>
                             </div>
+                            <div className="flex bg-gray-100 p-1 rounded-xl">
+                                <button
+                                    onClick={() => setCourseViewType('graph')}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${courseViewType === 'graph' ? 'bg-white text-university shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    🗺️ Graph View
+                                </button>
+                                <button
+                                    onClick={() => setCourseViewType('list')}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${courseViewType === 'list' ? 'bg-white text-university shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    📋 List View
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="space-y-8">
-                            {(Object.entries(coursesByCategory) as [CategoryType, Course[]][]).map(([category, catCourses]) => {
-                                const progress = calculateCategoryProgress(category, passedCodes, courses);
-                                const mandatoryPct = progress.mandatoryRequired > 0 ? Math.min(100, Math.round((progress.mandatoryCompleted / progress.mandatoryRequired) * 100)) : 100;
-                                const electivePct = progress.electiveRequired > 0 ? Math.min(100, Math.round((progress.electiveCompleted / progress.electiveRequired) * 100)) : 100;
-                                const isFulfilled = progress.totalCompleted >= progress.totalRequired;
+                        {courseViewType === 'graph' ? (
+                            <PrerequisiteGraph student={authenticatedStudent} allCourses={courses} />
+                        ) : (
+                            <div className="space-y-8">
+                                {(Object.entries(coursesByCategory) as [CategoryType, Course[]][]).map(([category, catCourses]) => {
+                                    const progress = calculateCategoryProgress(category, passedCodes, courses);
+                                    const mandatoryPct = progress.mandatoryRequired > 0 ? Math.min(100, Math.round((progress.mandatoryCompleted / progress.mandatoryRequired) * 100)) : 100;
+                                    const electivePct = progress.electiveRequired > 0 ? Math.min(100, Math.round((progress.electiveCompleted / progress.electiveRequired) * 100)) : 100;
+                                    const isFulfilled = progress.totalCompleted >= progress.totalRequired;
 
-                                const majorForRole = studentMajor !== 'General' ? studentMajor : 'CS';
-                                const mandatoryCourses = catCourses.filter(c => getCourseRoleInMajor(c.code, majorForRole) === 'Mandatory');
-                                const electiveCourses = catCourses.filter(c => getCourseRoleInMajor(c.code, majorForRole) !== 'Mandatory');
+                                    const majorForRole = studentMajor !== 'General' ? studentMajor : 'CS';
+                                    const mandatoryCourses = catCourses.filter(c => getCourseRoleInMajor(c.code, majorForRole) === 'Mandatory');
+                                    const electiveCourses = catCourses.filter(c => getCourseRoleInMajor(c.code, majorForRole) !== 'Mandatory');
 
-                                const renderCourseCard = (course: Course, isMandatory: boolean) => (
-                                    <div key={course.code} className={`border border-gray-200 rounded-lg px-3 py-2.5 hover:shadow-sm transition bg-white border-l-2 ${isMandatory ? 'border-l-slate-400' : 'border-l-cyan-300'}`}>
-                                        <div className="flex justify-between items-center mb-0.5">
-                                            <span className="font-medium text-sm text-gray-800">{course.code}</span>
-                                            <span className="text-xs text-gray-400">{course.credits} Cr</span>
+                                    const renderCourseCard = (course: Course, isMandatory: boolean) => (
+                                        <div key={course.code} className={`border border-gray-200 rounded-lg px-3 py-2.5 hover:shadow-sm transition bg-white border-l-2 ${isMandatory ? 'border-l-slate-400' : 'border-l-cyan-300'}`}>
+                                            <div className="flex justify-between items-center mb-0.5">
+                                                <span className="font-medium text-sm text-gray-800">{course.code}</span>
+                                                <span className="text-xs text-gray-400">{course.credits} Cr</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 truncate" title={course.name}>{course.name}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isMandatory ? 'bg-slate-100 text-slate-500' : 'bg-cyan-50 text-cyan-600'}`}>{isMandatory ? 'Mandatory' : 'Elective'}</span>
+                                                <span className="text-[10px] text-gray-300">L{course.level} · T{course.term}</span>
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-gray-500 truncate" title={course.name}>{course.name}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isMandatory ? 'bg-slate-100 text-slate-500' : 'bg-cyan-50 text-cyan-600'}`}>{isMandatory ? 'Mandatory' : 'Elective'}</span>
-                                            <span className="text-[10px] text-gray-300">L{course.level} · T{course.term}</span>
-                                        </div>
-                                    </div>
-                                );
+                                    );
 
-                                return (
-                                    <div key={category}>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="text-base font-semibold text-gray-800">
-                                                    {studentMajor !== 'General' && ['cs_major', 'it_major', 'is_major'].includes(category) ? `${studentMajor} Major` : CATEGORY_NAMES[category]}
-                                                </h3>
-                                                {isFulfilled && (
-                                                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
-                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                                        Fulfilled
-                                                    </span>
+                                    return (
+                                        <div key={category}>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-base font-semibold text-gray-800">
+                                                        {studentMajor !== 'General' && ['cs_major', 'it_major', 'is_major'].includes(category) ? `${studentMajor} Major` : CATEGORY_NAMES[category]}
+                                                    </h3>
+                                                    {isFulfilled && (
+                                                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                                            Fulfilled
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isFulfilled ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {progress.totalCompleted} / {progress.totalRequired} Cr
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1 mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[11px] text-slate-500 w-[72px] shrink-0">Mandatory</span>
+                                                    <div className="flex-1 bg-gray-100 rounded-full h-[6px] overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all duration-500 ${mandatoryPct >= 100 ? 'bg-emerald-400' : 'bg-slate-400'}`} style={{ width: `${mandatoryPct}%` }} />
+                                                    </div>
+                                                    <span className="text-[11px] text-slate-400 w-12 text-right">{progress.mandatoryCompleted}/{progress.mandatoryRequired}</span>
+                                                </div>
+                                                {progress.electiveRequired > 0 && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[11px] text-slate-500 w-[72px] shrink-0">Elective</span>
+                                                        <div className="flex-1 bg-gray-100 rounded-full h-[6px] overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all duration-500 ${electivePct >= 100 ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${electivePct}%` }} />
+                                                        </div>
+                                                        <span className="text-[11px] text-slate-400 w-12 text-right">{progress.electiveCompleted}/{progress.electiveRequired}</span>
+                                                    </div>
                                                 )}
                                             </div>
-                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isFulfilled ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                                                {progress.totalCompleted} / {progress.totalRequired} Cr
-                                            </span>
-                                        </div>
-                                        <div className="space-y-1 mb-3">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[11px] text-slate-500 w-[72px] shrink-0">Mandatory</span>
-                                                <div className="flex-1 bg-gray-100 rounded-full h-[6px] overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all duration-500 ${mandatoryPct >= 100 ? 'bg-emerald-400' : 'bg-slate-400'}`} style={{ width: `${mandatoryPct}%` }} />
-                                                </div>
-                                                <span className="text-[11px] text-slate-400 w-12 text-right">{progress.mandatoryCompleted}/{progress.mandatoryRequired}</span>
-                                            </div>
-                                            {progress.electiveRequired > 0 && (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[11px] text-slate-500 w-[72px] shrink-0">Elective</span>
-                                                    <div className="flex-1 bg-gray-100 rounded-full h-[6px] overflow-hidden">
-                                                        <div className={`h-full rounded-full transition-all duration-500 ${electivePct >= 100 ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${electivePct}%` }} />
-                                                    </div>
-                                                    <span className="text-[11px] text-slate-400 w-12 text-right">{progress.electiveCompleted}/{progress.electiveRequired}</span>
+                                            {isFulfilled ? (
+                                                <div className="text-center py-3 text-sm text-emerald-600 bg-emerald-50/50 rounded-lg border border-emerald-100">All required credits completed.</div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {mandatoryCourses.length > 0 && (
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Mandatory</h4>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">{mandatoryCourses.map(c => renderCourseCard(c, true))}</div>
+                                                        </div>
+                                                    )}
+                                                    {electiveCourses.length > 0 && (
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold text-cyan-500 mb-1.5 uppercase tracking-wider">Elective</h4>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">{electiveCourses.map(c => renderCourseCard(c, false))}</div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                        {isFulfilled ? (
-                                            <div className="text-center py-3 text-sm text-emerald-600 bg-emerald-50/50 rounded-lg border border-emerald-100">All required credits completed.</div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {mandatoryCourses.length > 0 && (
-                                                    <div>
-                                                        <h4 className="text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Mandatory</h4>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">{mandatoryCourses.map(c => renderCourseCard(c, true))}</div>
-                                                    </div>
-                                                )}
-                                                {electiveCourses.length > 0 && (
-                                                    <div>
-                                                        <h4 className="text-xs font-semibold text-cyan-500 mb-1.5 uppercase tracking-wider">Elective</h4>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">{electiveCourses.map(c => renderCourseCard(c, false))}</div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
 
-                            {studentMajor === 'General' && (
-                                <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-                                    <h3 className="text-base font-medium text-gray-400 mb-1">Major Requirements</h3>
-                                    <p className="text-lg font-bold text-gray-300">0 / 57 Cr</p>
-                                    <p className="text-xs text-gray-400 mt-1">Specialize in CS, IT, or IS to see major-specific courses</p>
-                                </div>
-                            )}
-                        </div>
+                                {studentMajor === 'General' && (
+                                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                        <h3 className="text-base font-medium text-gray-400 mb-1">Major Requirements</h3>
+                                        <p className="text-lg font-bold text-gray-300">0 / 57 Cr</p>
+                                        <p className="text-xs text-gray-400 mt-1">Specialize in CS, IT, or IS to see major-specific courses</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 

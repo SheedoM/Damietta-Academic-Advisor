@@ -53,12 +53,15 @@ export function numericToGradePoints(n: number): number {
     return 0.0;
 }
 
-// Approved semester plan (set by admin)
-export interface ApprovedPlan {
+// Unified Plan Structure for History
+export interface StudentPlan {
+    id: string;              // Unique identifier (e.g. timestamp/uuid)
+    semester: string;        // e.g., "Fall 2026"
+    status: 'draft' | 'approved';
     courses: string[];       // Course codes
     credits: number;
-    semester: string;        // e.g., "Fall 2026"
-    approvedAt: string;      // ISO 8601
+    generatedAt: string;     // ISO 8601
+    approvedAt?: string;     // ISO 8601 (only if status is approved)
 }
 
 // Full student profile
@@ -72,7 +75,7 @@ export interface StudentProfile {
     isBlocked: boolean;       // Default: false. Blocked students have read-only portal access.
     passedCourses: PassedCourseRecord[];
     profilePicture?: string;  // Base64 data URL for profile photo
-    approvedPlan?: ApprovedPlan; // Admin-approved plan for next semester
+    plans?: StudentPlan[];    // History of all generated/approved plans
     createdAt: string;        // ISO 8601
     updatedAt: string;        // ISO 8601
 }
