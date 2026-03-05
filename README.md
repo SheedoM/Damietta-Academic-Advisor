@@ -68,7 +68,7 @@ The current admin gateway is a basic entry check. Future security hardening incl
 Moving beyond the current priority-bucket logic towards a more dynamic model:
 - **Weighted Scoring System** — A unified algorithm that weights prerequisites, difficulty, and term-priority.
 - **Multi-Semester Pathfinding** — Generating a complete path to graduation from the student's current state.
-- **Elective slot Optimization** — Smarter automatic selection of electives based on prerequisite chains.
+- **Elective Slot Optimization** — Smarter automatic selection of electives based on prerequisite chains.
 
 ### 🎨 Advanced UX & Exports
 - **Responsive Mobile Dashboard** — Full support for student mobile views during registration peaks.
