@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { StudentProfile, ApprovedPlan } from '../types/student';
-import { Ticket, getTicketsByStudentId } from '../types/ticket';
+import { Ticket, getTicketsByStudentId, updateTicketStatus } from '../types/ticket';
 import { useCourses } from '../context/CourseContext';
 import { useStudents } from '../context/StudentContext';
 import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassification, toStudentForRoadmap } from '../lib/gradeUtils';
@@ -35,6 +35,7 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
     const [showPlanEditor, setShowPlanEditor] = useState(false);
     const [planSemester, setPlanSemester] = useState('Fall 2026');
     const [planTerm, setPlanTerm] = useState<Term>(1);
+    const [replyText, setReplyText] = useState<Record<string, string>>({});
 
     // Use fresh student data from context
     const currentStudent = getStudent(student.nationalId) || student;
@@ -81,6 +82,15 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
         setShowPlanEditor(false);
     };
 
+    const handleResolveTicket = (ticketId: string) => {
+        const reply = replyText[ticketId];
+        const updated = updateTicketStatus(ticketId, 'resolved', reply?.trim() || undefined);
+        if (updated) {
+            setTicketHistory(ticketHistory.map(t => t.id === ticketId ? updated : t));
+            setReplyText(prev => ({ ...prev, [ticketId]: '' }));
+        }
+    };
+
     const handleDelete = () => {
         removeStudent(currentStudent.nationalId);
         onDeleted();
@@ -113,23 +123,24 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden m-4 border border-gray-100 flex flex-col">
                 {/* Header */}
-                <div className="flex justify-between items-start mb-6">
+                <div className="sticky top-0 bg-white z-10 px-6 py-5 border-b border-gray-100 flex justify-between items-start">
                     <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-2xl font-bold text-gray-900">{currentStudent.name}</h2>
+                        <div className="flex items-center gap-3 mb-1">
+                            <h2 className="text-3xl font-bold text-gray-900 tracking-tight">{currentStudent.name}</h2>
                             {currentStudent.isBlocked && (
-                                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Blocked</span>
+                                <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold uppercase tracking-wider">Blocked</span>
                             )}
                             {gpa < 2.0 && (
-                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold border border-yellow-200">Academic Observation</span>
+                                <span className="px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs font-bold border border-yellow-200 uppercase tracking-wider">Academic Observation</span>
                             )}
                         </div>
-                        <p className="text-sm text-gray-500">
-                            University ID: <span className="font-mono font-medium text-indigo-600">{currentStudent.universityId}</span>
-                            {' • '}National ID: {currentStudent.nationalId} • Major: {currentStudent.major}
+                        <p className="text-sm text-gray-500 font-medium">
+                            ID: <span className="font-mono text-university">{currentStudent.universityId}</span>
+                            <span className="mx-2 text-gray-300">•</span>NID: {currentStudent.nationalId}
+                            <span className="mx-2 text-gray-300">•</span>Major: {currentStudent.major}
                             {currentStudent.isTransfer && (
                                 <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
                                     Transfer from {currentStudent.previousUniversity}
@@ -137,14 +148,14 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                             )}
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2.5">
                         <button
                             onClick={() => {
                                 toggleBlock(currentStudent.nationalId);
                             }}
-                            className={`px-3 py-1.5 text-sm rounded-md font-medium ${currentStudent.isBlocked
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            className={`px-4 py-2 text-sm rounded-xl font-semibold transition shadow-sm ${currentStudent.isBlocked
+                                ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                                : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
                                 }`}
                         >
                             {currentStudent.isBlocked ? 'Unblock' : 'Block'}
@@ -155,291 +166,338 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                 setTicketHistory(history);
                                 setShowTicketHistory(!showTicketHistory);
                             }}
-                            className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+                            className="px-4 py-2 text-sm bg-university-50 text-university-700 border border-university-200 rounded-xl font-semibold hover:bg-university-100 transition shadow-sm flex items-center gap-1"
                         >
-                            🎫 Tickets ({getTicketsByStudentId(currentStudent.universityId).length})
+                            <span>🎫</span> Tickets ({getTicketsByStudentId(currentStudent.universityId).length})
                         </button>
                         <button
                             onClick={() => setShowEditForm(true)}
-                            className="px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200"
+                            className="px-4 py-2 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-xl font-semibold hover:bg-gray-100 transition shadow-sm"
                         >
                             Edit
                         </button>
                         <button
                             onClick={() => setShowDeleteConfirm(true)}
-                            className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                            className="px-4 py-2 text-sm bg-red-50 text-red-700 border border-red-200 rounded-xl font-semibold hover:bg-red-100 transition shadow-sm"
                         >
                             Delete
                         </button>
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl ml-2">×</button>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-900 text-2xl ml-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition duration-150">→</button>
                     </div>
                 </div>
 
-                {/* Academic Summary Cards */}
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-indigo-700">{gpa.toFixed(2)}</p>
-                        <p className="text-xs text-indigo-500 mt-1">{classification}</p>
-                        <p className="text-xs text-gray-400">GPA</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-blue-700">{passedHours}</p>
-                        <p className="text-xs text-blue-500 mt-1">of ~{totalHoursForGraduation}h</p>
-                        <p className="text-xs text-gray-400">Passed Hours</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-green-700">{level}</p>
-                        <p className="text-xs text-green-500 mt-1">Year {level}</p>
-                        <p className="text-xs text-gray-400">Academic Level</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-purple-700">{currentStudent.passedCourses.length}</p>
-                        <p className="text-xs text-purple-500 mt-1">{currentStudent.passedCourses.filter(c => c.grade !== 'Fail').length} passed</p>
-                        <p className="text-xs text-gray-400">Courses</p>
-                    </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-6">
-                    <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600 font-medium">Progress to Graduation</span>
-                        <span className="text-gray-500">{progressPercent}%</span>
-                    </div>
-                    <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-all duration-500 ${progressPercent >= 75 ? 'bg-green-500' :
-                                progressPercent >= 50 ? 'bg-blue-500' :
-                                    progressPercent >= 25 ? 'bg-indigo-500' :
-                                        'bg-indigo-400'
-                                }`}
-                            style={{ width: `${progressPercent}%` }}
-                        />
-                    </div>
-                </div>
-
-                {/* Passed Courses Table */}
-                <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Passed Courses ({currentStudent.passedCourses.length})</h3>
-                    {currentStudent.passedCourses.length > 0 ? (
-                        <div className="border rounded-md overflow-hidden">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {currentStudent.passedCourses.map(record => {
-                                        const course = courseLookup(record.courseCode);
-                                        const gradeColor = record.grade === 'Excellent' ? 'text-green-700 bg-green-50' :
-                                            record.grade === 'Very Good' ? 'text-blue-700 bg-blue-50' :
-                                                record.grade === 'Good' ? 'text-indigo-700 bg-indigo-50' :
-                                                    record.grade === 'Pass' ? 'text-yellow-700 bg-yellow-50' :
-                                                        'text-red-700 bg-red-50';
-                                        return (
-                                            <tr key={record.courseCode} className="hover:bg-gray-50">
-                                                <td className="px-4 py-2 text-sm font-mono font-medium">
-                                                    {record.courseCode}
-                                                    {record.isTransferred && (
-                                                        <span className="ml-1 text-xs bg-orange-100 text-orange-700 px-1 rounded">T</span>
-                                                    )}
-                                                    {record.isRepeated && (
-                                                        <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 rounded" title="Repeated course">R</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-2 text-sm text-gray-600">{course?.name || 'Unknown'}</td>
-                                                <td className="px-4 py-2 text-sm text-gray-500">{course?.credits || '-'}</td>
-                                                <td className="px-4 py-2">
-                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${gradeColor}`}>
-                                                        {record.grade}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-2 text-sm text-gray-500">{record.gradePoints.toFixed(1)}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                {/* Content Body */}
+                <div className="p-6 space-y-8">
+                    {/* Academic Summary Cards */}
+                    <div className="grid grid-cols-4 gap-5">
+                        <div className="bg-university/5 p-5 rounded-2xl border border-university/10 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-university tracking-tight">{gpa.toFixed(2)}</p>
+                            <p className="text-sm font-semibold text-university-600 mt-1">{classification}</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Cumulative GPA</p>
                         </div>
-                    ) : (
-                        <div className="text-center py-8 text-gray-400 text-sm border rounded-md">
-                            No courses registered yet.
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-gray-900 tracking-tight">{passedHours}</p>
+                            <p className="text-sm font-semibold text-gray-500 mt-1">of ~{totalHoursForGraduation}h required</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Passed Hours</p>
                         </div>
-                    )}
-                </div>
-
-                {/* Approved Plan (if exists) */}
-                {currentStudent.approvedPlan && (
-                    <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-semibold text-green-800">✅ Approved Plan — {currentStudent.approvedPlan.semester}</h3>
-                            <span className="text-xs text-green-600">
-                                Approved {new Date(currentStudent.approvedPlan.approvedAt).toLocaleDateString()}
-                            </span>
+                        <div className="bg-green-50/50 p-5 rounded-2xl border border-green-100 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-green-700 tracking-tight">{level}</p>
+                            <p className="text-sm font-semibold text-green-600 mt-1">Year {level}</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Academic Level</p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            {currentStudent.approvedPlan.courses.map(code => {
-                                const course = courseLookup(code);
-                                return (
-                                    <span key={code} className="px-2 py-1 bg-white rounded border border-green-200 text-sm">
-                                        <span className="font-mono font-medium">{code}</span>
-                                        {course && <span className="text-gray-500 ml-1">({course.credits}cr)</span>}
-                                    </span>
-                                );
-                            })}
+                        <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-amber-600 tracking-tight">{currentStudent.passedCourses.length}</p>
+                            <p className="text-sm font-semibold text-amber-600 mt-1">{currentStudent.passedCourses.filter(c => c.grade !== 'Fail').length} passed</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Total Courses</p>
                         </div>
-                        <p className="text-xs text-green-600 mt-2">
-                            Total: {currentStudent.approvedPlan.credits} credit hours • {currentStudent.approvedPlan.courses.length} courses
-                        </p>
                     </div>
-                )}
 
-                {/* Generate & Approve Plan */}
-                <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                    <h3 className="text-sm font-semibold text-indigo-800 mb-3">📋 Semester Plan</h3>
-                    <div className="flex flex-wrap items-end gap-3 mb-3">
-                        <div>
-                            <label className="block text-xs text-gray-600 mb-1">Semester</label>
-                            <input
-                                type="text"
-                                value={planSemester}
-                                onChange={e => setPlanSemester(e.target.value)}
-                                className="border rounded-md px-3 py-1.5 text-sm w-40"
-                                placeholder="e.g., Fall 2026"
+                    {/* Progress Bar */}
+                    <div>
+                        <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-700 font-semibold">Degree Progress</span>
+                            <span className="text-gray-500 font-medium">{progressPercent}%</span>
+                        </div>
+                        <div className="h-4 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                            <div
+                                className={`h-full rounded-full transition-all duration-700 ease-out bg-university`}
+                                style={{ width: `${progressPercent}%` }}
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs text-gray-600 mb-1">Term</label>
-                            <select
-                                value={planTerm}
-                                onChange={e => setPlanTerm(Number(e.target.value) as Term)}
-                                className="border rounded-md px-3 py-1.5 text-sm"
-                            >
-                                <option value={1}>Fall (T1)</option>
-                                <option value={2}>Spring (T2)</option>
-                            </select>
-                        </div>
-                        <button
-                            onClick={handleGenerateRoadmap}
-                            className="px-4 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium text-sm"
-                        >
-                            🗺️ Generate Plan
-                        </button>
                     </div>
 
-                    {roadmap && (
-                        <div className="mt-3">
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-sm font-semibold text-indigo-800">
-                                    Recommended ({roadmap.length} courses • {roadmapCredits} credits)
-                                </h4>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setShowPlanEditor(true)}
-                                        className="px-3 py-1 text-xs bg-indigo-200 text-indigo-800 rounded hover:bg-indigo-300 font-medium"
-                                    >
-                                        ✏️ Edit Plan
-                                    </button>
-                                    <button
-                                        onClick={handleApprovePlan}
-                                        className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 font-medium"
-                                    >
-                                        ✅ Approve Plan
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {roadmap.map(code => {
-                                    const course = courseLookup(code);
-                                    return (
-                                        <span key={code} className="px-2 py-1 bg-white rounded border border-indigo-200 text-sm">
-                                            <span className="font-mono font-medium">{code}</span>
-                                            {course && <span className="text-gray-500 ml-1">({course.credits}cr)</span>}
-                                        </span>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Ticket History */}
-                {showTicketHistory && (
-                    <div className="mb-6">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Ticket History</h3>
-                        {ticketHistory.length > 0 ? (
-                            <div className="space-y-2">
-                                {ticketHistory.map(ticket => (
-                                    <div key={ticket.id} className="border rounded-md p-3 hover:bg-gray-50">
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <span className="font-mono text-sm font-medium text-indigo-600">{ticket.id}</span>
-                                                <span className="text-xs text-gray-400 ml-2">{new Date(ticket.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'resolved' ? 'bg-green-100 text-green-700' :
-                                                ticket.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                {ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Resolved'}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{ticket.subject}</p>
-                                        <p className="text-sm text-gray-500 mt-0.5 truncate">{ticket.message}</p>
-                                        {ticket.attachmentName && <p className="text-xs text-blue-500 mt-1">📎 {ticket.attachmentName}</p>}
-                                        {ticket.adminReply && (
-                                            <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                                                <strong>Admin reply:</strong> {ticket.adminReply}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                    {/* Passed Courses Table */}
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <span className="text-university">📚</span> Passed Courses <span className="text-sm font-medium text-gray-400 bg-gray-100 rounded-lg px-2 py-0.5 ml-2">{currentStudent.passedCourses.length}</span>
+                        </h3>
+                        {currentStudent.passedCourses.length > 0 ? (
+                            <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                                <table className="min-w-full divide-y divide-gray-200 bg-white">
+                                    <thead className="bg-gray-50/80">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {currentStudent.passedCourses.map(record => {
+                                            const course = courseLookup(record.courseCode);
+                                            const gradeColor = record.grade === 'Excellent' ? 'text-green-700 bg-green-50' :
+                                                record.grade === 'Very Good' ? 'text-blue-700 bg-blue-50' :
+                                                    record.grade === 'Good' ? 'text-indigo-700 bg-indigo-50' :
+                                                        record.grade === 'Pass' ? 'text-yellow-700 bg-yellow-50' :
+                                                            'text-red-700 bg-red-50';
+                                            return (
+                                                <tr key={record.courseCode} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 text-sm font-mono font-semibold text-gray-800">
+                                                        {record.courseCode}
+                                                        {record.isTransferred && (
+                                                            <span className="ml-1.5 text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-md font-bold uppercase" title="Transferred">Tr</span>
+                                                        )}
+                                                        {record.isRepeated && (
+                                                            <span className="ml-1.5 text-[10px] bg-university-100 text-university-700 px-1.5 py-0.5 rounded-md font-bold uppercase" title="Repeated course">Rp</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600 font-medium">{course?.name || 'Unknown'}</td>
+                                                    <td className="px-4 py-3 text-sm text-gray-500 text-center">{course?.credits || '-'}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide ${gradeColor}`}>
+                                                            {record.grade}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-500 text-center font-medium">{record.gradePoints.toFixed(1)}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         ) : (
-                            <div className="text-center py-4 text-gray-400 text-sm border rounded-md">
-                                No tickets found for this student.
+                            <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded-2xl">
+                                <p className="text-sm text-gray-500 font-medium">No courses registered yet.</p>
                             </div>
                         )}
                     </div>
-                )}
 
-                {/* Delete Confirmation */}
-                {showDeleteConfirm && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-                        <div className="bg-white rounded-lg p-6 max-w-sm">
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Student?</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Are you sure you want to delete <strong>{currentStudent.name}</strong>? This cannot be undone.
-                            </p>
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    onClick={() => setShowDeleteConfirm(false)}
-                                    className="px-4 py-2 border rounded-md hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleDelete}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                                >
-                                    Delete
-                                </button>
+                    {/* Approved Plan (if exists) */}
+                    {currentStudent.approvedPlan && (
+                        <div className="p-5 bg-green-50/80 rounded-2xl border border-green-200 shadow-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full -translate-y-8 translate-x-8 blur-xl"></div>
+                            <div className="flex items-center justify-between mb-4 relative z-10">
+                                <h3 className="text-base font-bold text-green-900 flex items-center gap-2">
+                                    <span className="text-xl">🎓</span> Approved Plan <span className="opacity-50 mx-1">—</span> {currentStudent.approvedPlan.semester}
+                                </h3>
+                                <span className="text-xs bg-green-200/50 text-green-800 px-3 py-1 rounded-full font-semibold">
+                                    Approved {new Date(currentStudent.approvedPlan.approvedAt).toLocaleDateString()}
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2.5 relative z-10">
+                                {currentStudent.approvedPlan.courses.map(code => {
+                                    const course = courseLookup(code);
+                                    return (
+                                        <div key={code} className="px-3 py-1.5 bg-white rounded-xl border border-green-100 shadow-sm flex items-center gap-1.5">
+                                            <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
+                                            {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-green-200/60 flex items-center justify-between relative z-10">
+                                <p className="text-sm font-semibold text-green-800">
+                                    Total Credits: <span className="text-green-900">{currentStudent.approvedPlan.credits}</span>
+                                </p>
+                                <p className="text-sm font-semibold text-green-800">
+                                    Courses: <span className="text-green-900">{currentStudent.approvedPlan.courses.length}</span>
+                                </p>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Close Button */}
-                <div className="flex justify-end pt-4 border-t">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 border rounded-md hover:bg-gray-50"
-                    >
-                        Close
-                    </button>
+                    {/* Generate & Approve Plan */}
+                    <div className="p-5 bg-university/5 rounded-2xl border border-university/10 shadow-sm">
+                        <h3 className="text-lg font-bold text-university-900 mb-4 flex items-center gap-2">
+                            <span>📋</span> Plan Management
+                        </h3>
+                        <div className="flex flex-wrap items-end gap-4 mb-4">
+                            <div className="flex-1 min-w-[150px]">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-university-800/80 mb-1.5 ml-1">Semester Target</label>
+                                <input
+                                    type="text"
+                                    value={planSemester}
+                                    onChange={e => setPlanSemester(e.target.value)}
+                                    className="w-full bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all"
+                                    placeholder="e.g., Fall 2026"
+                                />
+                            </div>
+                            <div className="w-40">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-university-800/80 mb-1.5 ml-1">Term</label>
+                                <select
+                                    value={planTerm}
+                                    onChange={e => setPlanTerm(Number(e.target.value) as Term)}
+                                    className="w-full bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none appearance-none transition-all"
+                                >
+                                    <option value={1}>Fall (T1)</option>
+                                    <option value={2}>Spring (T2)</option>
+                                </select>
+                            </div>
+                            <button
+                                onClick={handleGenerateRoadmap}
+                                className="px-5 py-2.5 bg-university text-white rounded-xl hover:bg-university-600 font-bold text-sm shadow-md shadow-university/20 transition-all flex items-center gap-2"
+                            >
+                                <span>⚡</span> Auto-Generate Plan
+                            </button>
+                        </div>
+
+                        {roadmap && (
+                            <div className="mt-6 pt-5 border-t border-university/10">
+                                <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
+                                    <h4 className="text-base font-bold text-university-900">
+                                        Suggested Roadmap <span className="text-sm font-medium text-university-600 bg-white px-2 py-0.5 rounded-lg border border-university/20 ml-2">{roadmap.length} courses • {roadmapCredits} credits</span>
+                                    </h4>
+                                    <div className="flex gap-2.5">
+                                        <button
+                                            onClick={() => setShowPlanEditor(true)}
+                                            className="px-4 py-2 text-sm bg-white border border-university-200 text-university-700 rounded-xl hover:bg-university-50 font-semibold transition-all shadow-sm"
+                                        >
+                                            ✏️ Edit Plan
+                                        </button>
+                                        <button
+                                            onClick={handleApprovePlan}
+                                            className="px-5 py-2 text-sm bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md shadow-green-500/20 flex items-center gap-1.5"
+                                        >
+                                            <span>✅</span> Approve & Save
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2.5">
+                                    {roadmap.map(code => {
+                                        const course = courseLookup(code);
+                                        return (
+                                            <div key={code} className="px-3 py-1.5 bg-white rounded-xl border border-university-100 shadow-sm flex items-center gap-1.5">
+                                                <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
+                                                {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Ticket History */}
+                    {showTicketHistory && (
+                        <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm">
+                            <div className="flex justify-between items-center mb-5">
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <span>🎫</span> Ticket History
+                                </h3>
+                                <span className="text-xs font-semibold bg-gray-200 text-gray-700 px-3 py-1 rounded-full">{ticketHistory.length} total</span>
+                            </div>
+                            {ticketHistory.length > 0 ? (
+                                <div className="space-y-4">
+                                    {ticketHistory.map(ticket => (
+                                        <div key={ticket.id} className={`bg-white rounded-xl p-5 border shadow-sm transition-shadow ${ticket.status === 'open' ? 'border-university-200' : 'border-gray-200'}`}>
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <span className="font-mono text-sm font-bold text-university">{ticket.id}</span>
+                                                        <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${ticket.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                                                            ticket.status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
+                                                                'bg-university-100 text-university-700 border border-university-200'
+                                                            }`}>
+                                                            {ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Resolved'}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-xs font-medium text-gray-400">{new Date(ticket.createdAt).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-gray-50/50 p-3 rounded-xl border border-gray-100 mt-2">
+                                                <h4 className="text-sm font-bold text-gray-800">{ticket.subject}</h4>
+                                                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{ticket.message}</p>
+                                                {ticket.attachmentName && (
+                                                    <div className="mt-3 flex items-center gap-2">
+                                                        <span className="text-xl">📎</span>
+                                                        <span className="text-xs font-medium text-university-600 bg-university-50 px-2 py-1 rounded-lg border border-university-100">{ticket.attachmentName}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Resolution / Admin Reply Section */}
+                                            {ticket.adminReply ? (
+                                                <div className="mt-4 p-4 bg-university/5 rounded-xl border border-university/10 relative">
+                                                    <div className="absolute -top-3 left-4 bg-university-50 text-university-700 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-university-100">Advisor Reply</div>
+                                                    <p className="text-sm font-medium text-university-900 mt-1">{ticket.adminReply}</p>
+                                                </div>
+                                            ) : ticket.status !== 'resolved' ? (
+                                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Resolve Ticket</label>
+                                                    <div className="flex gap-2">
+                                                        <textarea
+                                                            value={replyText[ticket.id] || ''}
+                                                            onChange={e => setReplyText(prev => ({ ...prev, [ticket.id]: e.target.value }))}
+                                                            placeholder="Type admin reply here..."
+                                                            className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all resize-none h-10"
+                                                        />
+                                                        <button
+                                                            onClick={() => handleResolveTicket(ticket.id)}
+                                                            disabled={!replyText[ticket.id]?.trim()}
+                                                            className="px-4 bg-university text-white rounded-xl font-bold text-sm shadow-sm hover:bg-university-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                                        >
+                                                            Resolve
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 bg-white border border-dashed border-gray-200 rounded-xl">
+                                    <p className="text-sm text-gray-500 font-medium">No tickets found for this student.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Delete Confirmation */}
+                    {showDeleteConfirm && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+                            <div className="bg-white rounded-lg p-6 max-w-sm">
+                                <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Student?</h3>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Are you sure you want to delete <strong>{currentStudent.name}</strong>? This cannot be undone.
+                                </p>
+                                <div className="flex justify-end gap-3">
+                                    <button
+                                        onClick={() => setShowDeleteConfirm(false)}
+                                        className="px-4 py-2 border rounded-md hover:bg-gray-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleDelete}
+                                        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Close Button */}
+                    <div className="flex justify-end pt-4 border-t border-gray-100 mt-8">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all shadow-sm"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
