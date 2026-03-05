@@ -81,6 +81,14 @@ Integration of a Large Language Model (LLM) to act as a 24/7 Academic Assistant:
 - **Bylaw Querying** — Natural language interface for students to ask about graduation requirements.
 - **What-If Analysis** — Students can ask the bot to simulate different major choices or elective paths.
 
+### 🔍 System Evaluation & Optimization
+A comprehensive review and hardening pass across all system dimensions:
+- **Security** — Input sanitization, XSS/CSRF prevention, secure credential storage, and Content Security Policy headers.
+- **Reliability** — Graceful error handling, data validation at all entry points, and fallback mechanisms for localStorage failures.
+- **Maintainability** — Code refactoring for modularity, consistent naming conventions, comprehensive JSDoc annotations, and improved separation of concerns.
+- **Scalability** — Code-splitting with dynamic imports, lazy loading of heavy components, debounced search inputs, and optimized re-render behavior.
+- **Accessibility** — ARIA labels, keyboard navigation, screen reader support, and color contrast compliance.
+
 ---
 
 *Designed for the Faculty of Computing and Artificial Intelligence — Damietta University.*

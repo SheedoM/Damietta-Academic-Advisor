@@ -11,8 +11,9 @@ import { useCourses } from '../context/CourseContext';
 import { useStudents } from '../context/StudentContext';
 import { getCourseRoleInMajor, COURSES_DATABASE, MAJORS } from '../data/courses';
 import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassification } from '../lib/gradeUtils';
-import { StudentProfile, PassedCourseRecord, generateUniversityId, numericToGrade, numericToGradePoints } from '../types/student';
+import { StudentProfile, PassedCourseRecord, numericToGrade, numericToGradePoints } from '../types/student';
 import { PrerequisiteGraph } from '../components/PrerequisiteGraph';
+import { useLanguage } from '../context/LanguageContext';
 
 
 type ViewMode = 'login' | 'register' | 'dashboard' | 'courses' | 'ticket';
@@ -68,6 +69,7 @@ const CATEGORY_NAMES: Record<CategoryType, string> = {
 function StudentPortal() {
     const { courses } = useCourses();
     const { getStudentByUniversityId, addStudent: addStudentToContext } = useStudents();
+    const { language, toggleLanguage } = useLanguage();
 
     // Auth state
     const [authUniversityId, setAuthUniversityId] = useState('');
@@ -79,18 +81,20 @@ function StudentPortal() {
     // Registration state
     const [regName, setRegName] = useState('');
     const [regNationalId, setRegNationalId] = useState('');
+    const [regUniversityId, setRegUniversityId] = useState('');
     const [regMajor, setRegMajor] = useState<Major>('General');
     const [regIsTransfer, setRegIsTransfer] = useState(false);
     const [regPreviousUniversity, setRegPreviousUniversity] = useState('');
     const [regPassedCourses, setRegPassedCourses] = useState<PassedCourseRecord[]>([]);
     const [regCourseSearch, setRegCourseSearch] = useState('');
     const [regErrors, setRegErrors] = useState<Record<string, string>>({});
-    const [regGradeInput, setRegGradeInput] = useState<number>(65);
+    const [regGradeInput, setRegGradeInput] = useState<number | ''>('');
     const [regProfilePicture, setRegProfilePicture] = useState<string>('');
+    const [regPassedCoursesTab, setRegPassedCoursesTab] = useState<'search' | 'json'>('search');
 
     // View state
     const [viewMode, setViewMode] = useState<ViewMode>('login');
-    const [courseViewType, setCourseViewType] = useState<'list' | 'graph'>('graph');
+    const [courseViewType, setCourseViewType] = useState<'list' | 'graph'>('list');
 
     // Ticket submission state
     const [ticketSubject, setTicketSubject] = useState('');
@@ -165,14 +169,14 @@ function StudentPortal() {
         const errors: Record<string, string> = {};
         if (!regName.trim()) errors.name = 'Name is required';
         if (!regNationalId.trim() || regNationalId.trim().length < 10) errors.nationalId = 'Valid National ID is required';
+        if (!regUniversityId.trim()) errors.universityId = 'University ID is required';
         if (regIsTransfer && !regPreviousUniversity.trim()) errors.previousUniversity = 'Previous university is required';
         setRegErrors(errors);
         if (Object.keys(errors).length > 0) return;
 
-        const universityId = generateUniversityId();
         const profile: StudentProfile = {
             nationalId: regNationalId.trim(),
-            universityId,
+            universityId: regUniversityId.trim(),
             name: regName.trim(),
             major: regMajor,
             isTransfer: regIsTransfer,
@@ -254,17 +258,20 @@ function StudentPortal() {
                     <div className="w-16 h-16 bg-[#0160C9]/5 border border-[#0160C9]/10 rounded-2xl shadow-sm flex items-center justify-center p-2 transform -rotate-3">
                         <img src="/assets/cai-logo.png" alt="University Logo" className="w-full h-full object-contain rotate-3" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </div>
-                    <div>
+                    <div className="flex-1">
                         <h1 className="text-3xl font-extrabold text-[#0160C9] tracking-tight">Student Portal</h1>
-                        <p className="text-gray-500 font-medium text-sm max-w-lg mt-1 relative z-10">Academic Advisor System</p>
+                        <p className="text-gray-500 font-medium text-sm max-w-lg mt-1 relative z-10">Faculty of Computer Science and Artificial Intelligence</p>
                     </div>
+                    <button onClick={toggleLanguage} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition text-sm font-bold border border-gray-200">
+                        {language === 'en' ? 'العربية' : 'English'}
+                    </button>
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-8 -mt-8 relative z-10 pb-20">
                 {/* Navigation (only when authenticated) */}
                 {authenticatedStudent && (
-                    <div className="mb-6 flex gap-3 flex-wrap bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                    <div className="sticky top-0 z-40 mb-6 flex gap-3 flex-wrap bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-gray-100">
                         <button onClick={() => setViewMode('dashboard')}
                             className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'dashboard' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
                             <span>📊</span> Dashboard
@@ -399,8 +406,16 @@ function StudentPortal() {
                                     </div>
                                 </div>
 
-                                {/* Major & Transfer */}
+                                {/* University ID, Major & Transfer */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">University ID <span className="text-red-500">*</span></label>
+                                        <input type="text" value={regUniversityId}
+                                            onChange={e => { setRegUniversityId(e.target.value); setRegErrors(prev => ({ ...prev, universityId: '' })); }}
+                                            className={`w-full bg-gray-50 border rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all ${regErrors.universityId ? 'border-red-400 focus:ring-red-200' : 'border-gray-200'}`}
+                                            placeholder="e.g., 202301015" />
+                                        {regErrors.universityId && <p className="text-xs text-red-600 mt-1 font-bold">{regErrors.universityId}</p>}
+                                    </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Major</label>
                                         <select value={regMajor} onChange={e => setRegMajor(e.target.value as Major)}
@@ -409,8 +424,8 @@ function StudentPortal() {
                                             {MAJORS.map(m => (<option key={m.id} value={m.id}>{m.name} ({m.id})</option>))}
                                         </select>
                                     </div>
-                                    <div className="flex items-center pt-5">
-                                        <label className="flex items-center gap-3 cursor-pointer p-4 border border-gray-100 bg-gray-50 rounded-xl w-full hover:border-university/30 transition-colors">
+                                    <div className="flex items-center pt-2 md:col-span-2">
+                                        <label className="flex items-center gap-3 cursor-pointer p-4 border border-gray-100 bg-gray-50 rounded-xl hover:border-university/30 transition-colors inline-flex">
                                             <div className="relative">
                                                 <input type="checkbox" checked={regIsTransfer} onChange={e => setRegIsTransfer(e.target.checked)} className="sr-only" />
                                                 <div className={`w-11 h-6 rounded-full transition-colors ${regIsTransfer ? 'bg-university' : 'bg-gray-300'}`}></div>
@@ -432,79 +447,160 @@ function StudentPortal() {
                                 )}
 
                                 {/* Passed Courses Selector */}
-                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                    <label className="block text-sm font-bold text-gray-800 mb-3">Recorded Courses History <span className="text-xs font-medium text-university px-2 py-0.5 bg-university/10 rounded-full ml-2">{regPassedCourses.length} selected</span></label>
-                                    <div className="flex gap-2 mb-4 relative">
-                                        <div className="flex-1 relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                                            <input type="text" value={regCourseSearch} onChange={e => setRegCourseSearch(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all"
-                                                placeholder="Search code or name..." />
-                                            {regCourseSearch && (
-                                                <div className="absolute z-50 top-full mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                                                    {courses.filter(c => {
-                                                        if (regPassedCourses.some(p => p.courseCode === c.code)) return false;
-                                                        const s = regCourseSearch.toLowerCase();
-                                                        return c.code.toLowerCase().includes(s) || c.name.toLowerCase().includes(s);
-                                                    }).slice(0, 15).map(course => (
-                                                        <button key={course.code} onClick={() => {
-                                                            setRegPassedCourses(prev => [...prev, {
-                                                                courseCode: course.code, grade: numericToGrade(regGradeInput),
-                                                                gradePoints: numericToGradePoints(regGradeInput), numericGrade: regGradeInput, isTransferred: regIsTransfer,
-                                                            }]);
-                                                            setRegCourseSearch('');
-                                                        }} className="w-full text-left px-4 py-3 hover:bg-university/5 border-b border-gray-50 last:border-0 transition-colors">
-                                                            <div className="flex justify-between items-center">
-                                                                <div><span className="font-bold text-sm text-gray-900">{course.code}</span><span className="text-sm text-gray-600 ml-2 font-medium">{course.name}</span></div>
-                                                                <span className="text-xs font-bold text-university bg-university/10 px-2 py-1 rounded-md">{course.credits} Cr</span>
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                    {courses.filter(c => {
-                                                        if (regPassedCourses.some(p => p.courseCode === c.code)) return false;
-                                                        const s = regCourseSearch.toLowerCase();
-                                                        return c.code.toLowerCase().includes(s) || c.name.toLowerCase().includes(s);
-                                                    }).length === 0 && <div className="px-4 py-4 text-sm font-medium text-gray-400 text-center">No matching courses found</div>}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 min-w-[140px]">
-                                            <span className="text-xs font-bold text-gray-400 uppercase">Score</span>
-                                            <input type="number" step="1" min="0" max="100" value={regGradeInput}
-                                                onChange={e => setRegGradeInput(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                                                className="w-12 py-3 text-sm font-bold text-center outline-none bg-transparent" />
-                                            <div className="h-6 w-px bg-gray-200 mx-1"></div>
-                                            <span className={`text-sm font-bold whitespace-nowrap ${numericToGrade(regGradeInput) === 'Fail' ? 'text-red-500' : 'text-green-600'}`}>
-                                                {numericToGrade(regGradeInput)}
-                                            </span>
-                                        </div>
+                                <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
+                                    <div className="flex border-b border-gray-200 bg-gray-100/50">
+                                        <button
+                                            onClick={() => setRegPassedCoursesTab('search')}
+                                            className={`flex-1 py-3 text-sm font-bold transition-colors ${regPassedCoursesTab === 'search' ? 'bg-white text-[#0160C9] border-b-2 border-[#0160C9]' : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            Search & Add
+                                        </button>
+                                        <button
+                                            onClick={() => setRegPassedCoursesTab('json')}
+                                            className={`flex-1 py-3 text-sm font-bold transition-colors ${regPassedCoursesTab === 'json' ? 'bg-white text-[#0160C9] border-b-2 border-[#0160C9]' : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            Raw JSON Input
+                                        </button>
                                     </div>
-                                    {regPassedCourses.length > 0 ? (
-                                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto shadow-sm">
-                                            {regPassedCourses.map(record => {
-                                                const course = courses.find(c => c.code === record.courseCode);
-                                                return (
-                                                    <div key={record.courseCode} className="flex justify-between items-center px-5 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 group transition duration-150">
-                                                        <div className="flex-1"><span className="font-bold text-sm text-gray-900">{record.courseCode}</span><span className="text-sm font-medium text-gray-600 ml-3">{course?.name || 'Unknown'}</span></div>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="flex flex-col items-end">
-                                                                <span className="text-sm font-bold text-gray-900">{record.numericGrade}%</span>
-                                                                <span className={`text-xs font-bold ${record.grade === 'Fail' ? 'text-red-500' : 'text-green-600'}`}>{record.grade}</span>
+                                    <div className="p-6">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <label className="block text-sm font-bold text-gray-800">Recorded Courses History</label>
+                                            <span className="text-xs font-bold text-university px-3 py-1 bg-university/10 rounded-full">{regPassedCourses.length} selected</span>
+                                        </div>
+
+                                        {regPassedCoursesTab === 'search' && (
+                                            <>
+                                                <div className="flex gap-2 mb-4 relative">
+                                                    <div className="flex-1 relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+                                                        <input type="text" value={regCourseSearch} onChange={e => setRegCourseSearch(e.target.value)}
+                                                            className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all"
+                                                            placeholder="Search code or name..." />
+                                                        {regCourseSearch && (
+                                                            <div className="absolute z-50 top-full mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                                                {courses.filter(c => {
+                                                                    if (regPassedCourses.some(p => p.courseCode === c.code)) return false;
+                                                                    const s = regCourseSearch.toLowerCase();
+                                                                    return c.code.toLowerCase().includes(s) || c.name.toLowerCase().includes(s);
+                                                                }).slice(0, 15).map(course => (
+                                                                    <div key={course.code} className="w-full text-left px-4 py-3 hover:bg-university/5 border-b border-gray-50 last:border-0 transition-colors flex justify-between items-center group">
+                                                                        <div>
+                                                                            <span className="font-bold text-sm text-gray-900 group-hover:text-university transition-colors">{course.code}</span>
+                                                                            <span className="text-sm text-gray-600 ml-2 font-medium">{course.name}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-[10px] font-bold text-university bg-university/10 px-2 py-1 rounded-md">{course.credits} Cr</span>
+                                                                            <button
+                                                                                disabled={regGradeInput === ''}
+                                                                                onClick={() => {
+                                                                                    if (typeof regGradeInput !== 'number') return;
+                                                                                    setRegPassedCourses(prev => [...prev, {
+                                                                                        courseCode: course.code, grade: numericToGrade(regGradeInput),
+                                                                                        gradePoints: numericToGradePoints(regGradeInput), numericGrade: regGradeInput, isTransferred: regIsTransfer,
+                                                                                    }]);
+                                                                                    setRegCourseSearch('');
+                                                                                }}
+                                                                                className="px-3 py-1 bg-[#0160C9] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100"
+                                                                            >
+                                                                                Add
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                                {courses.filter(c => {
+                                                                    if (regPassedCourses.some(p => p.courseCode === c.code)) return false;
+                                                                    const s = regCourseSearch.toLowerCase();
+                                                                    return c.code.toLowerCase().includes(s) || c.name.toLowerCase().includes(s);
+                                                                }).length === 0 && <div className="px-4 py-4 text-sm font-medium text-gray-400 text-center">No matching courses found</div>}
                                                             </div>
-                                                            <button onClick={() => setRegPassedCourses(prev => prev.filter(p => p.courseCode !== record.courseCode))}
-                                                                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition opacity-0 group-hover:opacity-100">
-                                                                ✕
-                                                            </button>
-                                                        </div>
+                                                        )}
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8 text-sm font-medium text-gray-400 border border-dashed border-gray-300 rounded-xl bg-white">
-                                            No courses added. Search to add completed courses.
-                                        </div>
-                                    )}
+                                                    <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 min-w-[140px]">
+                                                        <span className="text-xs font-bold text-gray-400 uppercase">Score<span className="text-red-500">*</span></span>
+                                                        <input type="number" step="1" min="0" max="100" value={regGradeInput === '' ? '' : regGradeInput}
+                                                            onChange={e => setRegGradeInput(e.target.value === '' ? '' : Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                                                            className="w-12 py-3 text-sm font-bold text-center outline-none bg-transparent" placeholder="--" />
+                                                        <div className="h-6 w-px bg-gray-200 mx-1"></div>
+                                                        <span className={`text-sm font-bold whitespace-nowrap ${typeof regGradeInput === 'number' ? (numericToGrade(regGradeInput) === 'Fail' ? 'text-red-500' : 'text-green-600') : 'text-gray-400'}`}>
+                                                            {typeof regGradeInput === 'number' ? numericToGrade(regGradeInput) : '-'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {regPassedCourses.length > 0 ? (
+                                                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto shadow-sm">
+                                                        {regPassedCourses.map(record => {
+                                                            const course = courses.find(c => c.code === record.courseCode);
+                                                            return (
+                                                                <div key={record.courseCode} className="flex justify-between items-center px-5 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 group transition duration-150">
+                                                                    <div className="flex-1"><span className="font-bold text-sm text-gray-900">{record.courseCode}</span><span className="text-sm font-medium text-gray-600 ml-3">{course?.name || 'Unknown'}</span></div>
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className="flex flex-col items-end">
+                                                                            <span className="text-sm font-bold text-gray-900">{record.numericGrade}%</span>
+                                                                            <span className={`text-xs font-bold ${record.grade === 'Fail' ? 'text-red-500' : 'text-green-600'}`}>{record.grade}</span>
+                                                                        </div>
+                                                                        <button onClick={() => setRegPassedCourses(prev => prev.filter(p => p.courseCode !== record.courseCode))}
+                                                                            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition opacity-[0.6] group-hover:opacity-100">
+                                                                            ✕
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-8 text-sm font-medium text-gray-400 border border-dashed border-gray-300 rounded-xl bg-white">
+                                                        No courses added. Search to add completed courses.
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {regPassedCoursesTab === 'json' && (
+                                            <div className="animate-in fade-in duration-200">
+                                                <textarea
+                                                    id="jsonInput"
+                                                    rows={3}
+                                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-mono focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all"
+                                                    placeholder='e.g. [{"courseCode": "CS101", "numericGrade": 85}, ...]'
+                                                ></textarea>
+                                                <button
+                                                    onClick={() => {
+                                                        const el = document.getElementById('jsonInput') as HTMLTextAreaElement;
+                                                        if (el && el.value.trim()) {
+                                                            try {
+                                                                const parsed = JSON.parse(el.value);
+                                                                if (Array.isArray(parsed)) {
+                                                                    const newCourses: PassedCourseRecord[] = parsed.map(p => ({
+                                                                        courseCode: p.courseCode,
+                                                                        numericGrade: p.numericGrade || 60,
+                                                                        grade: p.grade || numericToGrade(p.numericGrade || 60),
+                                                                        gradePoints: p.gradePoints || numericToGradePoints(p.numericGrade || 60),
+                                                                        isTransferred: p.isTransferred || regIsTransfer,
+                                                                    }));
+                                                                    // deduplicate
+                                                                    setRegPassedCourses(prev => {
+                                                                        const map = new Map(prev.map(item => [item.courseCode, item]));
+                                                                        newCourses.forEach(c => map.set(c.courseCode, c));
+                                                                        return Array.from(map.values());
+                                                                    });
+                                                                    el.value = '';
+                                                                    setRegErrors(prev => ({ ...prev, jsonError: '' }));
+                                                                } else {
+                                                                    setRegErrors(prev => ({ ...prev, jsonError: 'JSON must be an array of courses.' }));
+                                                                }
+                                                            } catch (err) {
+                                                                setRegErrors(prev => ({ ...prev, jsonError: 'Invalid JSON format.' }));
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="mt-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors"
+                                                >
+                                                    Apply JSON
+                                                </button>
+                                                {regErrors.jsonError && <p className="text-xs text-red-600 mt-1 font-bold">{regErrors.jsonError}</p>}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {regErrors.general && <p className="text-sm font-bold text-red-600 bg-red-50 p-3 rounded-lg border border-red-100 text-center">{regErrors.general}</p>}
@@ -590,7 +686,13 @@ function StudentPortal() {
 
                             <div className="space-y-6">
                                 {/* Approved Plans (from admin) */}
-                                {authenticatedStudent.plans && authenticatedStudent.plans.filter(p => p.status === 'approved').length > 0 ? (
+                                {authenticatedStudent.isBlocked ? (
+                                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center h-full flex flex-col justify-center items-center">
+                                        <div className="w-16 h-16 bg-red-50 border-2 border-dashed border-red-200 rounded-2xl flex items-center justify-center mb-4"><span className="text-2xl opacity-50">🚫</span></div>
+                                        <h3 className="text-base font-bold text-gray-800 mb-2 text-red-600">Plan Hidden</h3>
+                                        <p className="text-sm font-medium text-gray-500">Your academic plan is currently hidden because your account is restricted. Please contact your academic advisor.</p>
+                                    </div>
+                                ) : authenticatedStudent.plans && authenticatedStudent.plans.filter(p => p.status === 'approved').length > 0 ? (
                                     <div className="space-y-6">
                                         {authenticatedStudent.plans.filter(p => p.status === 'approved')
                                             .sort((a, b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime())

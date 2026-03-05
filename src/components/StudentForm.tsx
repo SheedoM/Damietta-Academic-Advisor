@@ -413,6 +413,51 @@ export function StudentForm({ existingStudent, onClose, onSaved }: StudentFormPr
                                 No courses registered yet. Search and add courses above.
                             </div>
                         )}
+
+                        {/* Raw JSON input */}
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Or Paste Raw JSON</label>
+                            <textarea
+                                id="adminJsonInput"
+                                rows={3}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-indigo-500 outline-none"
+                                placeholder='[{"courseCode": "CS101", "numericGrade": 85}, ...]'
+                            ></textarea>
+                            <button
+                                onClick={() => {
+                                    const el = document.getElementById('adminJsonInput') as HTMLTextAreaElement;
+                                    if (el && el.value.trim()) {
+                                        try {
+                                            const parsed = JSON.parse(el.value);
+                                            if (Array.isArray(parsed)) {
+                                                const newCourses: PassedCourseRecord[] = parsed.map(p => ({
+                                                    courseCode: p.courseCode,
+                                                    numericGrade: p.numericGrade || 60,
+                                                    grade: p.grade || numericToGrade(p.numericGrade || 60),
+                                                    gradePoints: p.gradePoints || numericToGradePoints(p.numericGrade || 60),
+                                                    isTransferred: p.isTransferred !== undefined ? p.isTransferred : isTransfer,
+                                                }));
+                                                setPassedCourses(prev => {
+                                                    const map = new Map(prev.map(item => [item.courseCode, item]));
+                                                    newCourses.forEach(c => map.set(c.courseCode, c));
+                                                    return Array.from(map.values());
+                                                });
+                                                el.value = '';
+                                                setErrors(prev => ({ ...prev, jsonError: '' }));
+                                            } else {
+                                                setErrors(prev => ({ ...prev, jsonError: 'JSON must be an array of courses.' }));
+                                            }
+                                        } catch (err) {
+                                            setErrors(prev => ({ ...prev, jsonError: 'Invalid JSON format.' }));
+                                        }
+                                    }
+                                }}
+                                className="mt-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-medium transition-colors"
+                            >
+                                Apply JSON
+                            </button>
+                            {errors.jsonError && <p className="text-xs text-red-600 mt-1">{errors.jsonError}</p>}
+                        </div>
                     </div>
                 )}
 

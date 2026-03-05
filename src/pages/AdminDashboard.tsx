@@ -14,6 +14,7 @@ import { calculateGPA, calculatePassedHours, inferAcademicLevel, getGPAClassific
 import { generateRoadmap } from '../lib/roadmapLogic';
 import { StudentForm } from '../components/StudentForm';
 import { StudentProfileView } from '../components/StudentProfileView';
+import { useLanguage } from '../context/LanguageContext';
 
 
 type CategoryFilter = 'all' | 'university' | 'basic-science' | 'college' | 'major' | 'projects';
@@ -67,6 +68,7 @@ async function hashPassword(password: string): Promise<string> {
 
 function AdminDashboard() {
     const { courses, addCourse, updateCourse, deleteCourse, toggleAvailability, resetToDefaults, exportCourses } = useCourses();
+    const { language, toggleLanguage } = useLanguage();
 
     // Auth state
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -107,8 +109,10 @@ function AdminDashboard() {
     const [selectedStudent, setSelectedStudent] = useState<StudentProfile | undefined>(undefined);
     const [showStudentForm, setShowStudentForm] = useState(false);
     const [editingStudent, setEditingStudent] = useState<StudentProfile | undefined>(undefined);
-    const [bulkPlanSemester, setBulkPlanSemester] = useState('Fall 2026');
     const [bulkSuccessMsg, setBulkSuccessMsg] = useState('');
+    const [showBulkPlanModal, setShowBulkPlanModal] = useState(false);
+    const [bulkPlanTargetYear, setBulkPlanTargetYear] = useState('Year 1');
+    const [bulkPlanTargetSemester, setBulkPlanTargetSemester] = useState('First Semester');
 
     const courseLookupFn = (code: string) => courses.find(c => c.code === code);
 
@@ -176,10 +180,13 @@ function AdminDashboard() {
     const handleGeneratePlansForAll = () => {
         let generatedCount = 0;
 
-        // Infer term from semester string (e.g., Spring = 2, Fall = 1)
-        const inferredTerm: Term = bulkPlanSemester.toLowerCase().includes('spring') ? 2 : 1;
+        // Infer term from semester string
+        const inferredTerm: Term = bulkPlanTargetSemester.toLowerCase().includes('second') ? 2 : 1;
+        const bulkPlanSemester = `${bulkPlanTargetYear} - ${bulkPlanTargetSemester}`;
 
         students.forEach(student => {
+            if (student.isBlocked) return;
+
             const roadmapStudent = toStudentForRoadmap(student, courseLookupFn);
             const availableCourses = courses.filter(c => c.available !== false);
             const { roadmap } = generateRoadmap(roadmapStudent, inferredTerm, availableCourses);
@@ -213,6 +220,7 @@ function AdminDashboard() {
         });
 
         setBulkSuccessMsg(`Successfully generated draft plans for ${generatedCount} students.`);
+        setShowBulkPlanModal(false);
         setTimeout(() => setBulkSuccessMsg(''), 5000);
     };
 
@@ -317,8 +325,8 @@ function AdminDashboard() {
 
                 <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-sm relative z-10 border border-gray-100">
                     <div className="text-center mb-8">
-                        <div className="w-20 h-20 bg-university/10 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 shadow-sm border border-university/20">
-                            <span className="text-3xl relative -rotate-3 text-university">🔒</span>
+                        <div className="w-20 h-20 bg-university/10 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 shadow-sm border border-university/20 p-3">
+                            <img src="/assets/cai-logo.png" alt="University Logo" className="w-full h-full object-contain -rotate-3" />
                         </div>
                         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Admin Portal</h1>
                         <p className="text-sm font-medium text-gray-500 mt-2 uppercase tracking-widest">Authorized Access Only</p>
@@ -362,15 +370,12 @@ function AdminDashboard() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-extrabold text-[#0160C9] tracking-tight">Damietta University Dashboard</h1>
-                            <p className="text-gray-500 font-medium text-sm max-w-lg mt-1 relative z-10">Academic Advisor & Management System</p>
+                            <p className="text-gray-500 font-medium text-sm max-w-lg mt-1 relative z-10">Faculty of Computer Science and Artificial Intelligence • Academic Advisor System</p>
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={exportCourses} className="px-4 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-xl transition text-sm font-semibold border border-gray-200">
-                            Export JSON
-                        </button>
-                        <button onClick={resetToDefaults} className="px-4 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-xl transition text-sm font-semibold border border-gray-200">
-                            Reset Data
+                        <button onClick={toggleLanguage} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition text-sm font-bold border border-gray-200">
+                            {language === 'en' ? 'العربية' : 'English'}
                         </button>
                         <a href="/portal" className="px-4 py-2 bg-[#0160C9] text-white rounded-xl hover:bg-blue-800 transition text-sm font-bold shadow-sm">
                             Portal View
@@ -387,7 +392,7 @@ function AdminDashboard() {
                 <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden min-h-[70vh] flex flex-col">
 
                     {/* Main Tabs */}
-                    <div className="flex px-6 pt-4 border-b border-gray-100 bg-gray-50/50">
+                    <div className="flex px-6 pt-4 border-b border-gray-100 bg-gray-50/50 sticky top-0 z-20 backdrop-blur-md">
                         <button
                             onClick={setMainTab.bind(null, 'courses')}
                             className={`px-6 py-4 font-bold transition border-b-2 -mb-px text-sm tracking-wide ${mainTab === 'courses'
@@ -435,7 +440,7 @@ function AdminDashboard() {
                                     {(['all', 'open', 'in_progress', 'resolved'] as const).map(status => (
                                         <button key={status} onClick={() => setTicketFilter(status)}
                                             className={`px-3 py-1.5 rounded-full text-sm font-medium capitalize ${ticketFilter === status
-                                                ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border'}`}>
+                                                ? 'bg-[#0160C9] text-white' : 'bg-white text-gray-700 border'}`}>
                                             {status.replace('_', ' ')}
                                         </button>
                                     ))}
@@ -470,7 +475,7 @@ function AdminDashboard() {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ticket.status === 'open' ? 'bg-yellow-100 text-yellow-800' :
-                                                            ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                                            ticket.status === 'in_progress' ? 'bg-[#0160C9]/10 text-[#0160C9]' :
                                                                 'bg-green-100 text-green-800'}`}>
                                                             {ticket.status.replace('_', ' ')}
                                                         </span>
@@ -522,7 +527,7 @@ function AdminDashboard() {
                                                     <div className="border rounded-lg p-4">
                                                         <h4 className="text-sm font-medium text-gray-700 mb-2">Attachment</h4>
                                                         <a href={selectedTicket.attachmentData} download={selectedTicket.attachmentName || 'attachment'}
-                                                            className="text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-1">
+                                                            className="text-[#0160C9] hover:text-blue-800 font-bold inline-flex items-center gap-1">
                                                             📎 Download {selectedTicket.attachmentName}
                                                         </a>
                                                     </div>
@@ -552,31 +557,55 @@ function AdminDashboard() {
                         {mainTab === 'students' && (
                             <div className="space-y-6">
                                 {/* Bulk Plan Generation Section */}
-                                <div className="bg-university/5 rounded-2xl p-5 border border-university/10 flex items-center justify-between shadow-sm">
+                                <div className="bg-university/5 rounded-2xl p-5 border border-university/10 flex flex-col md:flex-row items-start md:items-center justify-between shadow-sm gap-4">
                                     <div>
                                         <h3 className="text-sm font-bold text-university-900 mb-1">Bulk Generate Plans</h3>
                                         <p className="text-xs text-university-700/80">Automatically create draft degree plans for all registered students.</p>
                                     </div>
-                                    <div className="flex gap-3 items-center">
-                                        {bulkSuccessMsg && <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-lg">{bulkSuccessMsg}</span>}
-                                        <select
-                                            value={bulkPlanSemester}
-                                            onChange={e => setBulkPlanSemester(e.target.value)}
-                                            className="w-48 bg-white border border-university-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none cursor-pointer"
-                                        >
-                                            <option value="Fall 2026">Fall 2026</option>
-                                            <option value="Spring 2027">Spring 2027</option>
-                                            <option value="Fall 2027">Fall 2027</option>
-                                            <option value="Spring 2028">Spring 2028</option>
-                                            <option value="Fall 2028">Fall 2028</option>
-                                            <option value="Spring 2029">Spring 2029</option>
-                                        </select>
-                                        <button
-                                            onClick={handleGeneratePlansForAll}
-                                            className="px-5 py-2 bg-[#0160C9] text-white rounded-xl hover:bg-blue-800 font-bold text-sm shadow-md transition-all flex items-center gap-2"
-                                        >
-                                            <span>⚡</span> Generate Drafts
-                                        </button>
+                                    <div className="flex gap-3 items-center w-full md:w-auto">
+                                        {bulkSuccessMsg && <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-lg mr-2">{bulkSuccessMsg}</span>}
+                                        {!showBulkPlanModal ? (
+                                            <button
+                                                onClick={() => setShowBulkPlanModal(true)}
+                                                className="px-5 py-2.5 bg-[#0160C9] text-white rounded-xl hover:bg-blue-800 font-bold text-sm shadow-md transition-all whitespace-nowrap"
+                                            >
+                                                Generate Plans
+                                            </button>
+                                        ) : (
+                                            <div className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-xl border object-contain border-university-200">
+                                                <select
+                                                    value={bulkPlanTargetYear}
+                                                    onChange={e => setBulkPlanTargetYear(e.target.value)}
+                                                    className="bg-transparent text-sm font-medium focus:outline-none px-2 py-1 cursor-pointer"
+                                                >
+                                                    <option value="Year 1">Year 1</option>
+                                                    <option value="Year 2">Year 2</option>
+                                                    <option value="Year 3">Year 3</option>
+                                                    <option value="Year 4">Year 4</option>
+                                                </select>
+                                                <div className="w-px h-6 bg-gray-200 hidden sm:block self-center"></div>
+                                                <select
+                                                    value={bulkPlanTargetSemester}
+                                                    onChange={e => setBulkPlanTargetSemester(e.target.value)}
+                                                    className="bg-transparent text-sm font-medium focus:outline-none px-2 py-1 cursor-pointer"
+                                                >
+                                                    <option value="First Semester">First Semester</option>
+                                                    <option value="Second Semester">Second Semester</option>
+                                                </select>
+                                                <button
+                                                    onClick={handleGeneratePlansForAll}
+                                                    className="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-xs shadow-sm ml-2 transition-all whitespace-nowrap"
+                                                >
+                                                    ✓ Confirm
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowBulkPlanModal(false)}
+                                                    className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 hover:text-gray-700 font-bold text-xs shadow-sm transition-all"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -625,7 +654,7 @@ function AdminDashboard() {
                                                 return (
                                                     <tr key={student.nationalId} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedStudent(student)}>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.name}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 font-mono font-medium">{student.universityId || '—'}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#0160C9]/90 font-mono font-medium">{student.universityId || '—'}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{student.nationalId}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.major}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -647,7 +676,7 @@ function AdminDashboard() {
                                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); setSelectedStudent(student); }}
-                                                                className="text-indigo-600 hover:text-indigo-900"
+                                                                className="text-[#0160C9] hover:text-blue-900 font-bold"
                                                             >
                                                                 View
                                                             </button>
@@ -705,7 +734,7 @@ function AdminDashboard() {
                                                     if (cat !== 'major') setMajorSubtab('all');
                                                 }}
                                                 className={`px-4 py-2 rounded-md text-sm font-medium transition ${categoryFilter === cat
-                                                    ? 'bg-blue-600 text-white'
+                                                    ? 'bg-[#0160C9] text-white shadow-md shadow-blue-900/10'
                                                     : 'bg-white text-gray-700 hover:bg-gray-50 border'
                                                     }`}
                                             >
@@ -720,7 +749,7 @@ function AdminDashboard() {
                                             <button
                                                 onClick={() => setMajorSubtab('all')}
                                                 className={`px-3 py-1.5 rounded text-xs font-medium transition ${majorSubtab === 'all'
-                                                    ? 'bg-indigo-600 text-white'
+                                                    ? 'bg-[#0160C9] text-white'
                                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                                     }`}
                                             >
@@ -731,7 +760,7 @@ function AdminDashboard() {
                                                     key={major.id}
                                                     onClick={() => setMajorSubtab(major.id)}
                                                     className={`px-3 py-1.5 rounded text-xs font-medium transition ${majorSubtab === major.id
-                                                        ? 'bg-indigo-600 text-white'
+                                                        ? 'bg-[#0160C9] text-white'
                                                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                                         }`}
                                                 >
@@ -763,9 +792,15 @@ function AdminDashboard() {
                                         </select>
                                         <button
                                             onClick={() => { setIsCreating(true); setFormErrors({}); }}
-                                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+                                            className="px-4 py-2 bg-[#0160C9] text-white font-bold rounded-md hover:bg-blue-800 transition shadow-sm"
                                         >
                                             + Add Course
+                                        </button>
+                                        <button onClick={exportCourses} className="px-4 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-md transition text-sm font-semibold border border-gray-200 ml-auto">
+                                            Export JSON
+                                        </button>
+                                        <button onClick={resetToDefaults} className="px-4 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-md transition text-sm font-semibold border border-gray-200">
+                                            Reset Data
                                         </button>
                                     </div>
 
@@ -883,7 +918,7 @@ function AdminDashboard() {
                                                     </button>
                                                     <button
                                                         onClick={handleCreateCourse}
-                                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                                        className="px-4 py-2 bg-[#0160C9] text-white rounded-md hover:bg-blue-800 font-bold"
                                                     >
                                                         Create Course
                                                     </button>
@@ -995,7 +1030,7 @@ function AdminDashboard() {
                                                     </button>
                                                     <button
                                                         onClick={handleSaveEdit}
-                                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                                        className="px-4 py-2 bg-[#0160C9] text-white rounded-md hover:bg-blue-800 font-bold"
                                                     >
                                                         Save Changes
                                                     </button>
@@ -1053,7 +1088,7 @@ function AdminDashboard() {
                                                             <td className="px-4 py-3 text-center">
                                                                 <button
                                                                     onClick={() => toggleAvailability(course.code)}
-                                                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 ${course.available !== false ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                                                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${course.available !== false ? 'bg-green-500' : 'bg-gray-200'}`}
                                                                     role="switch"
                                                                     aria-checked={course.available !== false}
                                                                 >
@@ -1099,7 +1134,7 @@ function AdminDashboard() {
                                                                             setEditPrereqText(course.prereqs?.join(', ') || '');
                                                                             setFormErrors({});
                                                                         }}
-                                                                        className="px-3 py-1 text-xs border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium"
+                                                                        className="px-3 py-1 text-xs border border-[#0160C9]/40 text-[#0160C9] rounded-md hover:bg-[#0160C9]/5 font-bold"
                                                                     >
                                                                         Edit
                                                                     </button>
