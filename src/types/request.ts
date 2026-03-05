@@ -66,6 +66,15 @@ export function getRequestById(id: string): StudentRequest | undefined {
     return getAllRequests().find(r => r.id === id);
 }
 
+/**
+ * Get all requests for a given student ID (University ID), sorted by createdAt descending.
+ */
+export function getRequestsByStudentId(studentId: string): StudentRequest[] {
+    return getAllRequests()
+        .filter(r => r.studentId === studentId)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
 export function updateRequestStatus(id: string, status: RequestStatus, adminNotes?: string): StudentRequest | null {
     const requests = getAllRequests();
     const index = requests.findIndex(r => r.id === id);

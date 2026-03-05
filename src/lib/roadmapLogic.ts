@@ -69,42 +69,9 @@ const checkPrereqs = (student: Student, course: Course): { met: boolean; missing
     return { met: missing.length === 0, missing };
 };
 
-// ========== COURSE SCORING SYSTEM ==========
-// Configurable weights for course prioritization
-// Adjust these to tune the algorithm for different student levels
-const SCORING_WEIGHTS = {
-    directDependents: 3,   // Points per direct dependent (immediate unlocks)
-    chainDepth: 1,         // Points per course in the full chain (transitive unlocks)
-    levelPenalty: -2,      // Penalty per level (lower level = higher score)
-    creditBonus: 0.5,      // Bonus per credit hour (prefer higher credit courses)
-};
-
 // Helper: Count how many courses directly depend on this course
 const getDirectDependentCount = (courseCode: string): number => {
-    return COURSES.filter(c =>
-        c.prereqs.includes(courseCode)
-    ).length;
-};
-
-// Cache for chain depth calculations
-const chainDepthCache = new Map<string, number>();
-
-// Helper: Calculate total courses unlockable from this course (transitive/recursive)
-const getChainDepth = (courseCode: string, visited: Set<string> = new Set()): number => {
-    if (visited.has(courseCode)) return 0;
-    if (chainDepthCache.has(courseCode)) return chainDepthCache.get(courseCode)!;
-
-    visited.add(courseCode);
-
-    const directDependents = COURSES.filter(c => c.prereqs.includes(courseCode));
-    let total = directDependents.length;
-
-    for (const dep of directDependents) {
-        total += getChainDepth(dep.code, new Set(visited));
-    }
-
-    chainDepthCache.set(courseCode, total);
-    return total;
+    return COURSES.filter(c => c.prereqs.includes(courseCode)).length;
 };
 
 // Helper: Infer level from course code (e.g., CS102 -> 1, CS205 -> 2, CS311 -> 3)
@@ -112,24 +79,6 @@ const inferLevelFromCode = (code: string): number => {
     const match = code.match(/\d/);
     return match ? parseInt(match[0]) : 9;
 };
-
-// Calculate weighted score for a course
-const calculateCourseScore = (course: Course): number => {
-    const direct = getDirectDependentCount(course.code);
-    const chain = getChainDepth(course.code);
-    const level = inferLevelFromCode(course.code);
-
-    const score = (
-        direct * SCORING_WEIGHTS.directDependents +
-        chain * SCORING_WEIGHTS.chainDepth +
-        level * SCORING_WEIGHTS.levelPenalty +
-        course.credits * SCORING_WEIGHTS.creditBonus
-    );
-
-    return score;
-};
-
-// ========== END SCORING SYSTEM ==========
 
 // Helper: Get required hours for a bucket/major
 // Note: Bucket requirements are defined in BUCKET_DEFS below
@@ -156,25 +105,30 @@ export const generateRoadmap = (student: Student, currentTerm: Term, coursesInpu
     const activeCourses = coursesInput ?? COURSES;
     const roadmap: Course[] = [];
     const log: string[] = [];
-    let currentLoad = 0;
-    const maxLoad = student.gpa < 2.0 ? 12 : 19;
 
-    log.push(`Starting generation for Major: ${student.major}, GPA: ${student.gpa}, Term: ${currentTerm}`);
+    // Phase 1: Academic Status Evaluation
+    const maxLoad = student.gpa < 2.0 ? 12 : 19;
+    let currentLoad = 0;
+
+    log.push(`Starting Generation for Major: ${student.major}, GPA: ${student.gpa}, Term: ${currentTerm}`);
     log.push(`Max Load: ${maxLoad}`);
 
-    // Build bucket status map
-    const bucketStatus = new Map<BucketPriority, { passed: number, required: number, courses: Course[] }>();
-    BUCKET_DEFS.forEach(def => {
-        bucketStatus.set(def.priority, { passed: 0, required: def.required, courses: [] });
-    });
+    // Track passed elective hours for truncation
+    let passedCollegeElectives = 0;
+    let passedMajorElectives = 0;
 
-    // Categorize courses into buckets based on student's major
+    // We still build a basic bucket map for the UI summary since the UI expects bucketStatuses
+    const bucketStatus = new Map<BucketPriority, { passed: number, required: number, courses: Course[] }>();
+    BUCKET_DEFS.forEach(def => bucketStatus.set(def.priority, { passed: 0, required: def.required, courses: [] }));
+    const plannedHours = new Map<BucketPriority, number>();
+    BUCKET_DEFS.forEach(def => plannedHours.set(def.priority, 0));
+
     activeCourses.forEach(c => {
         const role = getRoleForMajor(c, student.major);
-        if (role === 'N/A') return; // Skip courses not relevant to student's major
+        if (role === 'N/A') return;
 
+        // Bucket parsing just for UI
         let priority: BucketPriority | null = null;
-
         if (c.code.startsWith("UNV")) {
             priority = BucketPriority.UniversityMandatory;
         } else if (c.code.startsWith("BS")) {
@@ -182,25 +136,13 @@ export const generateRoadmap = (student: Student, currentTerm: Term, coursesInpu
         } else if (c.code.startsWith("TR") || c.code.startsWith("PR")) {
             priority = BucketPriority.ProjectsTraining;
         } else {
-            // CS, IS, IT courses
             const mandatoryForAll = isMandatoryForAllMajors(c.code);
-
-            if (mandatoryForAll) {
-                priority = BucketPriority.CollegeMandatory;
-            } else if (role === 'Mandatory') {
-                priority = BucketPriority.MajorMandatory;
-            } else {
-                // Check if this is a college elective (elective for ALL majors)
-                const isElectiveForAll =
-                    getCourseRoleInMajor(c.code, 'CS') === 'Elective' &&
-                    getCourseRoleInMajor(c.code, 'IS') === 'Elective' &&
-                    getCourseRoleInMajor(c.code, 'IT') === 'Elective';
-
-                if (isElectiveForAll) {
-                    priority = BucketPriority.CollegeElective;
-                } else {
-                    priority = BucketPriority.MajorElective;
-                }
+            if (mandatoryForAll) priority = BucketPriority.CollegeMandatory;
+            else if (role === 'Mandatory') priority = BucketPriority.MajorMandatory;
+            else {
+                const isElectiveForAll = getCourseRoleInMajor(c.code, 'CS') === 'Elective' && getCourseRoleInMajor(c.code, 'IS') === 'Elective' && getCourseRoleInMajor(c.code, 'IT') === 'Elective';
+                if (isElectiveForAll) priority = BucketPriority.CollegeElective;
+                else priority = BucketPriority.MajorElective;
             }
         }
 
@@ -213,104 +155,96 @@ export const generateRoadmap = (student: Student, currentTerm: Term, coursesInpu
                 }
             }
         }
+
+        // Elective truncation counting
+        if (isPassed(student, c.code)) {
+            const isCollegeElective = role === 'Elective' && getCourseRoleInMajor(c.code, 'CS') === 'Elective' && getCourseRoleInMajor(c.code, 'IS') === 'Elective' && getCourseRoleInMajor(c.code, 'IT') === 'Elective';
+            if (isCollegeElective) passedCollegeElectives += c.credits;
+            else if (role === 'Elective') passedMajorElectives += c.credits;
+        }
     });
 
-    // Track planned hours per bucket
-    const plannedHours = new Map<BucketPriority, number>();
-    BUCKET_DEFS.forEach(def => plannedHours.set(def.priority, 0));
+    const eligibleCourses: (Course & { score: number })[] = [];
 
-    // Helper: Check if a course can be added
-    const canAddCourse = (course: Course): boolean => {
-        if (currentLoad + course.credits > maxLoad) return false;
-        if (roadmap.find(r => r.code === course.code)) return false;
-        if (isPassed(student, course.code)) return false;
-        if (course.available === false) return false;
-        if (course.term !== currentTerm) return false;
-        return checkPrereqs(student, course).met;
-    };
+    // Phase 2: Course Filtering
+    for (const course of activeCourses) {
+        if (isPassed(student, course.code)) continue;
+        if (course.available === false) continue;
+        if (course.term !== currentTerm) continue;
 
-    // BUCKET-FIRST ALGORITHM: Process buckets in priority order (1 → 8)
-    for (const def of BUCKET_DEFS) {
-        const bucket = bucketStatus.get(def.priority)!;
-        const isElective = def.name.includes("Elective");
+        const role = getRoleForMajor(course, student.major);
+        if (role === 'N/A') continue;
 
-        // Check if bucket is already complete
-        if (bucket.passed >= def.required) {
-            log.push(`Bucket ${def.name} complete (${bucket.passed}/${def.required})`);
-            continue;
+        const prereqCheck = checkPrereqs(student, course);
+        if (!prereqCheck.met) continue;
+
+        // Phase 2b: Elective Truncation
+        const isCollegeElective = role === 'Elective' && getCourseRoleInMajor(course.code, 'CS') === 'Elective' && getCourseRoleInMajor(course.code, 'IS') === 'Elective' && getCourseRoleInMajor(course.code, 'IT') === 'Elective';
+        if (isCollegeElective && passedCollegeElectives >= 6) continue;
+        if (role === 'Elective' && !isCollegeElective && passedMajorElectives >= 12) continue;
+
+        // Phase 3: Weight Scoring Engine
+        let score = 0;
+
+        // Failed Course (+100)
+        if (student.failedCourses.includes(course.code)) {
+            score += 100;
         }
 
-        // Get eligible candidates: unpassed, available, this term, prereqs met
-        const candidates = bucket.courses
-            .filter(c => !isPassed(student, c.code))
-            .filter(c => c.available !== false)
-            .filter(c => c.term === currentTerm)
-            .filter(c => checkPrereqs(student, c).met);
+        // Bottleneck (+50 per dependent)
+        const dependants = getDirectDependentCount(course.code);
+        score += dependants * 50;
 
-        // LEVEL-FIRST SORTING: Lower levels before higher levels
-        candidates.sort((a, b) => {
-            const levelA = inferLevelFromCode(a.code);
-            const levelB = inferLevelFromCode(b.code);
-            if (levelA !== levelB) return levelA - levelB;
-            // Tie-breaker: score (for blocking courses)
-            return calculateCourseScore(b) - calculateCourseScore(a);
-        });
+        // Mandatory/Elective (+25/+10)
+        if (course.code.startsWith('UNV') || course.code.startsWith('BS')) {
+            const mandatoryForAll = isMandatoryForAllMajors(course.code);
+            if (mandatoryForAll || role === 'Mandatory') score += 25;
+            else score += 10;
+        } else if (course.code.startsWith('TR') || course.code.startsWith('PR')) {
+            score += 25; // Treat projects/training as Mandatory priority
+        } else {
+            if (role === 'Mandatory') score += 25;
+            else score += 10;
+        }
 
-        log.push(`Bucket ${def.name}: ${candidates.length} candidates`);
+        eligibleCourses.push({ ...course, score });
+    }
 
-        // Fill this bucket
-        for (const course of candidates) {
-            // Stop if we've reached max load
-            if (currentLoad >= maxLoad) break;
+    // Phase 4: Schedule Generation
+    // Sort descending by score. Tie-break: Level ascending (Level 1 before Level 2)
+    eligibleCourses.sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        return inferLevelFromCode(a.code) - inferLevelFromCode(b.code);
+    });
 
-            // For elective buckets: stop if bucket hours satisfied
-            if (isElective) {
-                const totalFilled = bucket.passed + (plannedHours.get(def.priority) || 0);
-                if (totalFilled >= def.required) break;
+    const isSummerTrainingRestricted = currentTerm === 3 && student.passedHours >= 70 && !isPassed(student, 'TRN301');
+
+    for (const course of eligibleCourses) {
+        if (currentLoad >= maxLoad) break;
+
+        // Summer Training Constraint
+        if (isSummerTrainingRestricted) {
+            // Can only add projects/training (e.g., TRN301)
+            if (!course.code.startsWith('TR') && !course.code.startsWith('PR')) {
+                continue;
             }
+        }
 
-            // Check if can add
-            if (canAddCourse(course)) {
-                roadmap.push(course);
-                currentLoad += course.credits;
-                plannedHours.set(def.priority, (plannedHours.get(def.priority) || 0) + course.credits);
-                log.push(`  Added: ${course.code} (L${inferLevelFromCode(course.code)}, ${course.credits}cr)`);
+        if (currentLoad + course.credits <= maxLoad) {
+            roadmap.push(course);
+            currentLoad += course.credits;
+            log.push(`Added: ${course.code} (Score: ${course.score}, L${inferLevelFromCode(course.code)})`);
+
+            // Increment planned hours for UI bucket matching
+            const uiPriorityMatches = Array.from(bucketStatus.entries()).find(([_, b]) => b.courses.some(c => c.code === course.code));
+            if (uiPriorityMatches) {
+                const priority = uiPriorityMatches[0];
+                plannedHours.set(priority, (plannedHours.get(priority) || 0) + course.credits);
             }
         }
     }
 
-    // If we still have room, try to add overflow courses from lower-priority buckets
-    if (currentLoad < maxLoad) {
-        log.push(`--- Overflow fill (${maxLoad - currentLoad} credits remaining) ---`);
-
-        // Collect all remaining eligible courses sorted by level
-        const overflowCandidates: Course[] = [];
-        for (const def of BUCKET_DEFS) {
-            const bucket = bucketStatus.get(def.priority)!;
-            const remaining = bucket.courses.filter(c => canAddCourse(c));
-            overflowCandidates.push(...remaining);
-        }
-
-        // Sort by level, then by score
-        overflowCandidates.sort((a, b) => {
-            const levelA = inferLevelFromCode(a.code);
-            const levelB = inferLevelFromCode(b.code);
-            if (levelA !== levelB) return levelA - levelB;
-            return calculateCourseScore(b) - calculateCourseScore(a);
-        });
-
-        for (const course of overflowCandidates) {
-            if (currentLoad >= maxLoad) break;
-            if (canAddCourse(course)) {
-                roadmap.push(course);
-                currentLoad += course.credits;
-                log.push(`  Overflow: ${course.code} (L${inferLevelFromCode(course.code)}, ${course.credits}cr)`);
-            }
-        }
-    }
-
-    // Build bucket status summary
-    log.push(`--- Bucket Summary ---`);
+    // Build bucket status summary for UI
     const bucketStatuses: BucketStatus[] = [];
     for (const def of BUCKET_DEFS) {
         const info = bucketStatus.get(def.priority)!;
@@ -321,7 +255,6 @@ export const generateRoadmap = (student: Student, currentTerm: Term, coursesInpu
             planned: planned,
             required: def.required
         });
-        log.push(`${def.name}: ${info.passed}/${def.required} passed, +${planned} planned`);
     }
 
     log.push(`Total load: ${currentLoad}/${maxLoad} credits`);
