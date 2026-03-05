@@ -322,137 +322,131 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                         )}
                     </div>
 
-                    {/* Student Plans History */}
-                    {(currentStudent.plans?.length || 0) > 0 && (
-                        <div className="space-y-5">
-                            <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                <span className="text-university">🗓️</span> Academic Plans <span className="text-sm font-medium text-gray-400 bg-gray-100 rounded-lg px-2 py-0.5 ml-2">{currentStudent.plans?.length}</span>
+                    {/* Plan Management */}
+                    <div className="p-5 bg-university/5 rounded-2xl border border-university/10 shadow-sm mt-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold text-university-900 flex items-center gap-2">
+                                <span>�</span> Plan Management <span className="text-sm font-medium text-university-600 bg-white px-2 py-0.5 rounded-lg border border-university/20 ml-2">{(currentStudent.plans?.length || 0)} Records</span>
                             </h3>
-                            {currentStudent.plans!.sort((a, b) => b.semester.localeCompare(a.semester)).map(plan => {
-                                const isApproved = plan.status === 'approved';
-                                return (
-                                    <div key={plan.id} className={`p-5 rounded-2xl border shadow-sm relative overflow-hidden ${isApproved ? 'bg-green-50/80 border-green-200' : 'bg-amber-50/80 border-amber-200'}`}>
-                                        <div className={`absolute top-0 right-0 w-24 h-24 rounded-full -translate-y-8 translate-x-8 blur-xl ${isApproved ? 'bg-green-500/10' : 'bg-amber-500/10'}`}></div>
-                                        <div className="flex items-center justify-between mb-4 relative z-10">
-                                            <h3 className={`text-base font-bold flex items-center gap-2 ${isApproved ? 'text-green-900' : 'text-amber-900'}`}>
-                                                <span className="text-xl">{isApproved ? '🎓' : '⏳'}</span>
-                                                {isApproved ? 'Approved Plan' : 'Draft Plan'}
-                                                <span className="opacity-50 mx-1">—</span> {plan.semester}
-                                            </h3>
-                                            <div className="flex gap-2 items-center">
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingPlan(plan);
-                                                        setPlanSemester(plan.semester);
-                                                        setShowPlanEditor(true);
-                                                    }}
-                                                    className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${isApproved ? 'text-green-700 bg-green-200/50 hover:bg-green-300/50' : 'text-amber-700 bg-amber-200/50 hover:bg-amber-300/50'}`}
-                                                >
-                                                    ✏️ Edit
-                                                </button>
-                                                {!isApproved && (
+                        </div>
+
+                        {/* Existing Plans History */}
+                        {(currentStudent.plans?.length || 0) > 0 && (
+                            <div className="space-y-4 mb-8">
+                                {currentStudent.plans!.sort((a, b) => b.semester.localeCompare(a.semester)).map(plan => {
+                                    const isApproved = plan.status === 'approved';
+                                    return (
+                                        <div key={plan.id} className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isApproved ? 'bg-green-50/90 border-green-200' : 'bg-amber-50/90 border-amber-200'}`}>
+                                            <div className="flex items-center justify-between mb-3 relative z-10">
+                                                <h4 className={`text-sm font-bold flex items-center gap-2 ${isApproved ? 'text-green-900' : 'text-amber-900'}`}>
+                                                    <span className="text-lg">{isApproved ? '🎓' : '⏳'}</span>
+                                                    {isApproved ? 'Approved Plan' : 'Draft Plan'}
+                                                    <span className="opacity-50 mx-1">—</span> {plan.semester}
+                                                </h4>
+                                                <div className="flex gap-2 items-center">
                                                     <button
-                                                        onClick={() => handleApproveDraft(plan)}
-                                                        className="text-xs font-bold text-white bg-green-600 hover:bg-green-700 px-4 py-1.5 rounded-lg transition shadow-md shadow-green-600/20"
+                                                        onClick={() => {
+                                                            setEditingPlan(plan);
+                                                            setPlanSemester(plan.semester);
+                                                            setShowPlanEditor(true);
+                                                        }}
+                                                        className={`text-xs font-bold px-3 py-1 rounded-lg transition ${isApproved ? 'text-green-700 bg-green-200/50 hover:bg-green-300/50' : 'text-amber-700 bg-amber-200/50 hover:bg-amber-300/50'}`}
                                                     >
-                                                        ✓ Approve
+                                                        ✏️ Edit
                                                     </button>
-                                                )}
-                                                {isApproved && plan.approvedAt && (
-                                                    <span className="text-xs bg-green-200/50 text-green-800 px-3 py-1 rounded-full font-semibold ml-2">
-                                                        Approved {new Date(plan.approvedAt).toLocaleDateString()}
-                                                    </span>
-                                                )}
+                                                    {!isApproved && (
+                                                        <button
+                                                            onClick={() => handleApproveDraft(plan)}
+                                                            className="text-xs font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded-lg transition shadow-sm"
+                                                        >
+                                                            ✓ Approve
+                                                        </button>
+                                                    )}
+                                                    {isApproved && plan.approvedAt && (
+                                                        <span className="text-[10px] bg-green-200/50 text-green-800 px-2 py-1 rounded-md font-bold uppercase tracking-wider ml-1">
+                                                            {new Date(plan.approvedAt).toLocaleDateString()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2 relative z-10">
+                                                {plan.courses.map(code => {
+                                                    const course = courseLookup(code);
+                                                    return (
+                                                        <div key={code} className={`px-2 py-1 bg-white rounded-lg border shadow-sm flex items-center gap-1 ${isApproved ? 'border-green-100' : 'border-amber-200'}`}>
+                                                            <span className="font-mono font-bold text-gray-800 text-xs">{code}</span>
+                                                            {course && <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1 py-0.5 rounded">{course.credits}cr</span>}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                        <div className="flex flex-wrap gap-2.5 relative z-10">
-                                            {plan.courses.map(code => {
-                                                const course = courseLookup(code);
-                                                return (
-                                                    <div key={code} className={`px-3 py-1.5 bg-white rounded-xl border shadow-sm flex items-center gap-1.5 ${isApproved ? 'border-green-100' : 'border-amber-200'}`}>
-                                                        <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
-                                                        {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        <div className={`mt-4 pt-3 border-t flex items-center justify-between relative z-10 ${isApproved ? 'border-green-200/60' : 'border-amber-200/60'}`}>
-                                            <p className={`text-sm font-semibold ${isApproved ? 'text-green-800' : 'text-amber-800'}`}>
-                                                {isApproved ? 'Courses:' : 'Generated On:'} <span className={isApproved ? 'text-green-900' : 'text-amber-900'}>{isApproved ? plan.courses.length : new Date(plan.generatedAt || new Date()).toLocaleDateString()}</span>
-                                            </p>
-                                            <p className={`text-sm font-semibold ${isApproved ? 'text-green-800' : 'text-amber-800'}`}>
-                                                Total Credits: <span className={isApproved ? 'text-green-900' : 'text-amber-900'}>{plan.credits}</span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* Generate & Approve Plan */}
-                    <div className="p-5 bg-university/5 rounded-2xl border border-university/10 shadow-sm">
-                        <h3 className="text-lg font-bold text-university-900 mb-4 flex items-center gap-2">
-                            <span>📋</span> Plan Management
-                        </h3>
-                        <div className="flex flex-wrap items-end gap-4 mb-4">
-                            <div className="flex-1 min-w-[250px]">
-                                <label className="block text-xs font-bold uppercase tracking-wider text-university-800/80 mb-1.5 ml-1">Semester Target</label>
-                                <select
-                                    value={planSemester}
-                                    onChange={e => setPlanSemester(e.target.value)}
-                                    className="w-full bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
-                                >
-                                    <option value="Fall 2026">Fall 2026</option>
-                                    <option value="Spring 2027">Spring 2027</option>
-                                    <option value="Fall 2027">Fall 2027</option>
-                                    <option value="Spring 2028">Spring 2028</option>
-                                    <option value="Fall 2028">Fall 2028</option>
-                                    <option value="Spring 2029">Spring 2029</option>
-                                </select>
-                            </div>
-                            <button
-                                onClick={handleGenerateRoadmap}
-                                className="px-5 py-2.5 bg-university text-white rounded-xl hover:bg-university-600 font-bold text-sm shadow-md shadow-university/20 transition-all flex items-center gap-2"
-                            >
-                                <span>⚡</span> Auto-Generate Plan
-                            </button>
-                        </div>
-
-                        {roadmap && (
-                            <div className="mt-6 pt-5 border-t border-university/10">
-                                <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-                                    <h4 className="text-base font-bold text-university-900">
-                                        Suggested Roadmap <span className="text-sm font-medium text-university-600 bg-white px-2 py-0.5 rounded-lg border border-university/20 ml-2">{roadmap.length} courses • {roadmapCredits} credits</span>
-                                    </h4>
-                                    <div className="flex gap-2.5">
-                                        <button
-                                            onClick={() => setShowPlanEditor(true)}
-                                            className="px-4 py-2 text-sm bg-white border border-university-200 text-university-700 rounded-xl hover:bg-university-50 font-semibold transition-all shadow-sm"
-                                        >
-                                            ✏️ Edit Plan
-                                        </button>
-                                        <button
-                                            onClick={handleApprovePlan}
-                                            className="px-5 py-2 text-sm bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md shadow-green-500/20 flex items-center gap-1.5"
-                                        >
-                                            <span>✅</span> Approve & Save
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2.5">
-                                    {roadmap.map(code => {
-                                        const course = courseLookup(code);
-                                        return (
-                                            <div key={code} className="px-3 py-1.5 bg-white rounded-xl border border-university-100 shadow-sm flex items-center gap-1.5">
-                                                <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
-                                                {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                    );
+                                })}
                             </div>
                         )}
+
+                        <div className={`pt-5 ${(currentStudent.plans?.length || 0) > 0 ? 'border-t border-university/10' : ''}`}>
+                            <h4 className="text-sm font-bold text-university-800 uppercase tracking-wider mb-4">Generate New Plan</h4>
+                            <div className="flex flex-wrap items-end gap-4 mb-4">
+                                <div className="flex-1 min-w-[250px]">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-university-800/80 mb-1.5 ml-1">Semester Target</label>
+                                    <select
+                                        value={planSemester}
+                                        onChange={e => setPlanSemester(e.target.value)}
+                                        className="w-full bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
+                                    >
+                                        <option value="Fall 2026">Fall 2026</option>
+                                        <option value="Spring 2027">Spring 2027</option>
+                                        <option value="Fall 2027">Fall 2027</option>
+                                        <option value="Spring 2028">Spring 2028</option>
+                                        <option value="Fall 2028">Fall 2028</option>
+                                        <option value="Spring 2029">Spring 2029</option>
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={handleGenerateRoadmap}
+                                    className="px-5 py-2.5 bg-university bg-[#0160C9] text-white rounded-xl hover:bg-blue-700 font-bold text-sm shadow-md shadow-[#0160C9]/20 transition-all flex items-center gap-2"
+                                >
+                                    <span>⚡</span> Auto-Generate Plan
+                                </button>
+                            </div>
+
+                            {roadmap && (
+                                <div className="mt-6 pt-5 border-t border-university/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
+                                        <h4 className="text-base font-bold text-university-900">
+                                            Suggested Roadmap <span className="text-sm font-medium text-university-600 bg-white px-2 py-0.5 rounded-lg border border-university/20 ml-2">{roadmap.length} courses • {roadmapCredits} credits</span>
+                                        </h4>
+                                        <div className="flex gap-2.5">
+                                            <button
+                                                onClick={() => setShowPlanEditor(true)}
+                                                className="px-4 py-2 text-sm bg-white border border-university-200 text-university-700 rounded-xl hover:bg-university-50 font-semibold transition-all shadow-sm"
+                                            >
+                                                ✏️ Edit Plan
+                                            </button>
+                                            <button
+                                                onClick={handleApprovePlan}
+                                                className="px-5 py-2 text-sm bg-green-600 border border-green-700 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md flex items-center gap-1.5"
+                                            >
+                                                <span>✅</span> Save as Approved
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2.5">
+                                        {roadmap.map(code => {
+                                            const course = courseLookup(code);
+                                            return (
+                                                <div key={code} className="px-3 py-1.5 bg-white rounded-xl border border-university-100 shadow-sm flex items-center gap-1.5">
+                                                    <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
+                                                    {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Ticket History */}

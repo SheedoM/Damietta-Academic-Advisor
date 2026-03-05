@@ -249,14 +249,14 @@ function StudentPortal() {
     return (
         <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
             {/* Header Area */}
-            <div className="bg-university pt-8 pb-16 px-8 relative z-0">
+            <div className="bg-white border-b border-gray-200 pt-8 pb-16 px-8 relative z-0 shadow-sm">
                 <div className="max-w-7xl mx-auto flex items-center gap-4">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-xl flex items-center justify-center p-2 transform rotate-3">
-                        <img src="/assets/cai-logo.png" alt="University Logo" className="w-full h-full object-contain -rotate-3" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <div className="w-16 h-16 bg-[#0160C9]/5 border border-[#0160C9]/10 rounded-2xl shadow-sm flex items-center justify-center p-2 transform -rotate-3">
+                        <img src="/assets/cai-logo.png" alt="University Logo" className="w-full h-full object-contain rotate-3" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">Student Portal</h1>
-                        <p className="text-university-100 font-medium text-sm drop-shadow-sm max-w-lg mt-1 relative z-10 opacity-90">Academic Advisor System</p>
+                        <h1 className="text-3xl font-extrabold text-[#0160C9] tracking-tight">Student Portal</h1>
+                        <p className="text-gray-500 font-medium text-sm max-w-lg mt-1 relative z-10">Academic Advisor System</p>
                     </div>
                 </div>
             </div>
@@ -330,7 +330,7 @@ function StudentPortal() {
 
                                 <button onClick={handleLogin}
                                     disabled={!authUniversityId.trim() || !authNationalId.trim()}
-                                    className="w-full bg-university text-white py-3.5 rounded-xl font-bold hover:bg-university-600 transition-all shadow-lg shadow-university/30 disabled:opacity-50 disabled:shadow-none mt-2 text-sm tracking-wide">
+                                    className="w-full bg-[#0160C9] text-white py-3.5 rounded-xl font-bold hover:bg-blue-800 transition-all shadow-lg disabled:opacity-50 disabled:shadow-none mt-2 text-sm tracking-wide">
                                     SECURE LOGIN
                                 </button>
 

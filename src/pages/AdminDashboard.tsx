@@ -338,7 +338,7 @@ function AdminDashboard() {
                         {authError && <p className="text-xs font-bold text-red-600 bg-red-50 p-2 text-center rounded-lg border border-red-100">{authError}</p>}
                         <button
                             onClick={handleLogin}
-                            className="w-full bg-university text-white py-3.5 rounded-xl font-bold hover:bg-university-600 transition-all shadow-lg shadow-university/30 text-sm tracking-wide"
+                            className="w-full bg-[#0160C9] text-white py-3.5 rounded-xl font-bold hover:bg-blue-800 transition-all shadow-lg text-sm tracking-wide"
                         >
                             SECURE LOG IN
                         </button>
@@ -354,25 +354,25 @@ function AdminDashboard() {
     return (
         <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
             {/* Header Area */}
-            <div className="bg-university pt-8 pb-32 px-8 relative z-0">
+            <div className="bg-white border-b border-gray-200 pt-8 pb-32 px-8 relative z-0 shadow-sm">
                 <div className="max-w-7xl mx-auto flex items-start justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-white rounded-2xl shadow-xl flex items-center justify-center p-2 transform rotate-3">
+                        <div className="w-16 h-16 bg-[#0160C9]/5 border border-[#0160C9]/10 rounded-2xl shadow-sm flex items-center justify-center p-2 transform rotate-3">
                             <img src="/assets/cai-logo.png" alt="University Logo" className="w-full h-full object-contain -rotate-3" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">Damietta University Dashboard</h1>
-                            <p className="text-university-100 font-medium text-sm drop-shadow-sm max-w-lg mt-1 relative z-10 opacity-90">Academic Advisor & Management System</p>
+                            <h1 className="text-3xl font-extrabold text-[#0160C9] tracking-tight">Damietta University Dashboard</h1>
+                            <p className="text-gray-500 font-medium text-sm max-w-lg mt-1 relative z-10">Academic Advisor & Management System</p>
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={exportCourses} className="px-4 py-2 bg-white/10 text-white backdrop-blur-md rounded-xl hover:bg-white/20 transition text-sm font-semibold border border-white/20">
+                        <button onClick={exportCourses} className="px-4 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-xl transition text-sm font-semibold border border-gray-200">
                             Export JSON
                         </button>
-                        <button onClick={resetToDefaults} className="px-4 py-2 bg-white/10 text-white backdrop-blur-md rounded-xl hover:bg-white/20 transition text-sm font-semibold border border-white/20">
+                        <button onClick={resetToDefaults} className="px-4 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-xl transition text-sm font-semibold border border-gray-200">
                             Reset Data
                         </button>
-                        <a href="/portal" className="px-4 py-2 bg-white text-university rounded-xl hover:bg-gray-100 transition text-sm font-bold shadow-md shadow-university-900/20">
+                        <a href="/portal" className="px-4 py-2 bg-[#0160C9] text-white rounded-xl hover:bg-blue-800 transition text-sm font-bold shadow-sm">
                             Portal View
                         </a>
                         <button onClick={handleLogout} className="px-4 py-2 bg-red-500/90 text-white rounded-xl hover:bg-red-600 transition text-sm font-semibold border border-red-400">
