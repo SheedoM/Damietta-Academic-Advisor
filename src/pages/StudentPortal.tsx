@@ -271,7 +271,7 @@ function StudentPortal() {
             <div className="max-w-7xl mx-auto px-8 -mt-8 relative z-10 pb-20">
                 {/* Navigation (only when authenticated) */}
                 {authenticatedStudent && (
-                    <div className="sticky top-0 z-40 mb-6 flex gap-3 flex-wrap bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-gray-100">
+                    <div className="sticky top-0 z-40 mb-6 flex gap-3 flex-wrap bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                         <button onClick={() => setViewMode('dashboard')}
                             className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'dashboard' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
                             <span>📊</span> Dashboard

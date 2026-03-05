@@ -111,7 +111,7 @@ function AdminDashboard() {
     const [editingStudent, setEditingStudent] = useState<StudentProfile | undefined>(undefined);
     const [bulkSuccessMsg, setBulkSuccessMsg] = useState('');
     const [showBulkPlanModal, setShowBulkPlanModal] = useState(false);
-    const [bulkPlanTargetYear, setBulkPlanTargetYear] = useState('Year 1');
+    const [bulkPlanTargetYear, setBulkPlanTargetYear] = useState(new Date().getFullYear());
     const [bulkPlanTargetSemester, setBulkPlanTargetSemester] = useState('First Semester');
 
     const courseLookupFn = (code: string) => courses.find(c => c.code === code);
@@ -392,7 +392,7 @@ function AdminDashboard() {
                 <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden min-h-[70vh] flex flex-col">
 
                     {/* Main Tabs */}
-                    <div className="flex px-6 pt-4 border-b border-gray-100 bg-gray-50/50 sticky top-0 z-20 backdrop-blur-md">
+                    <div className="flex px-6 pt-4 border-b border-gray-100 bg-gray-50 sticky top-0 z-40">
                         <button
                             onClick={setMainTab.bind(null, 'courses')}
                             className={`px-6 py-4 font-bold transition border-b-2 -mb-px text-sm tracking-wide ${mainTab === 'courses'
@@ -573,16 +573,12 @@ function AdminDashboard() {
                                             </button>
                                         ) : (
                                             <div className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-xl border object-contain border-university-200">
-                                                <select
+                                                <input
+                                                    type="number"
                                                     value={bulkPlanTargetYear}
-                                                    onChange={e => setBulkPlanTargetYear(e.target.value)}
-                                                    className="bg-transparent text-sm font-medium focus:outline-none px-2 py-1 cursor-pointer"
-                                                >
-                                                    <option value="Year 1">Year 1</option>
-                                                    <option value="Year 2">Year 2</option>
-                                                    <option value="Year 3">Year 3</option>
-                                                    <option value="Year 4">Year 4</option>
-                                                </select>
+                                                    onChange={e => setBulkPlanTargetYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
+                                                    className="bg-transparent text-sm font-medium focus:outline-none px-3 py-1 cursor-pointer w-24"
+                                                />
                                                 <div className="w-px h-6 bg-gray-200 hidden sm:block self-center"></div>
                                                 <select
                                                     value={bulkPlanTargetSemester}
