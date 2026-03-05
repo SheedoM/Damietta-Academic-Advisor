@@ -32,9 +32,11 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
     const [roadmapCredits, setRoadmapCredits] = useState(0);
     const [showPlanEditor, setShowPlanEditor] = useState(false);
     const [editingPlan, setEditingPlan] = useState<StudentPlan | null>(null);
-    const [planSemester, setPlanSemester] = useState('Fall 2026');
+    const [planTerm, setPlanTerm] = useState('Fall');
+    const [planYear, setPlanYear] = useState(new Date().getFullYear());
+    const planSemester = `${planTerm} ${planYear}`;
     const [replyText, setReplyText] = useState<Record<string, string>>({});
-    const [profileTab, setProfileTab] = useState<'overview' | 'courses' | 'plans' | 'tickets'>('overview');
+    const [profileTab, setProfileTab] = useState<'courses' | 'plans' | 'tickets'>('courses');
 
     // Use fresh student data from context
     const currentStudent = getStudent(student.nationalId) || student;
@@ -50,7 +52,6 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
 
     // Progress toward graduation (assume ~144 total hours)
     const totalHoursForGraduation = 144;
-    const progressPercent = Math.min(100, Math.round((passedHours / totalHoursForGraduation) * 100));
 
     const handleGenerateRoadmap = () => {
         const studentForRoadmap = toStudentForRoadmap(currentStudent, courseLookup);
@@ -92,6 +93,16 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
             }
             return p;
         });
+        updateStudent({ ...currentStudent, plans: updatedPlans });
+        onUpdated();
+    };
+
+    const handleDeletePlan = (planId: string) => {
+        if (!currentStudent.plans) return;
+        const confirmDelete = window.confirm("Are you sure you want to delete this plan?");
+        if (!confirmDelete) return;
+
+        const updatedPlans = currentStudent.plans.filter(p => p.id !== planId);
         updateStudent({ ...currentStudent, plans: updatedPlans });
         onUpdated();
     };
@@ -165,7 +176,7 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden m-4 border border-gray-100 flex flex-col">
                 {/* Header */}
-                <div className="sticky top-0 bg-white z-10 px-6 py-5 border-b border-gray-100 flex justify-between items-start">
+                <div className="sticky top-0 bg-white z-40 px-6 py-5 border-b border-gray-100 flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
                             <h2 className="text-3xl font-bold text-gray-900 tracking-tight">{currentStudent.name}</h2>
@@ -215,10 +226,35 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                     </div>
                 </div>
 
+                {/* Academic Summary Cards */}
+                <div className="px-6 py-4 bg-gray-50/30">
+                    <div className="grid grid-cols-4 gap-5">
+                        <div className="bg-university/5 p-5 rounded-2xl border border-university/10 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-university tracking-tight">{gpa.toFixed(2)}</p>
+                            <p className="text-sm font-semibold text-university-600 mt-1">{classification}</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Cumulative GPA</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-gray-900 tracking-tight">{passedHours}</p>
+                            <p className="text-sm font-semibold text-gray-500 mt-1">of ~{totalHoursForGraduation}h required</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Passed Hours</p>
+                        </div>
+                        <div className="bg-green-50/50 p-5 rounded-2xl border border-green-100 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-green-700 tracking-tight">{level}</p>
+                            <p className="text-sm font-semibold text-green-600 mt-1">Year {level}</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Academic Level</p>
+                        </div>
+                        <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 flex flex-col items-center justify-center shadow-sm">
+                            <p className="text-4xl font-extrabold text-amber-600 tracking-tight">{currentStudent.passedCourses.length}</p>
+                            <p className="text-sm font-semibold text-amber-600 mt-1">{currentStudent.passedCourses.filter(c => c.grade !== 'Fail').length} passed</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Total Courses</p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Tab Navigation */}
                 <div className="flex border-b border-gray-200 bg-gray-50/50 px-6">
                     {([
-                        { id: 'overview' as const, label: 'Overview' },
                         { id: 'courses' as const, label: `Passed Courses (${currentStudent.passedCourses.length})` },
                         { id: 'plans' as const, label: `Course Plans (${currentStudent.plans?.length || 0})` },
                         { id: 'tickets' as const, label: `Tickets (${ticketsForStudent.length})` },
@@ -237,49 +273,6 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
 
                 {/* Content Body */}
                 <div className="p-6 space-y-8">
-
-                    {/* ===== Overview Tab ===== */}
-                    {profileTab === 'overview' && (
-                        <div className="space-y-6">
-                            {/* Academic Summary Cards */}
-                            <div className="grid grid-cols-4 gap-5">
-                                <div className="bg-university/5 p-5 rounded-2xl border border-university/10 flex flex-col items-center justify-center shadow-sm">
-                                    <p className="text-4xl font-extrabold text-university tracking-tight">{gpa.toFixed(2)}</p>
-                                    <p className="text-sm font-semibold text-university-600 mt-1">{classification}</p>
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Cumulative GPA</p>
-                                </div>
-                                <div className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col items-center justify-center shadow-sm">
-                                    <p className="text-4xl font-extrabold text-gray-900 tracking-tight">{passedHours}</p>
-                                    <p className="text-sm font-semibold text-gray-500 mt-1">of ~{totalHoursForGraduation}h required</p>
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Passed Hours</p>
-                                </div>
-                                <div className="bg-green-50/50 p-5 rounded-2xl border border-green-100 flex flex-col items-center justify-center shadow-sm">
-                                    <p className="text-4xl font-extrabold text-green-700 tracking-tight">{level}</p>
-                                    <p className="text-sm font-semibold text-green-600 mt-1">Year {level}</p>
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Academic Level</p>
-                                </div>
-                                <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 flex flex-col items-center justify-center shadow-sm">
-                                    <p className="text-4xl font-extrabold text-amber-600 tracking-tight">{currentStudent.passedCourses.length}</p>
-                                    <p className="text-sm font-semibold text-amber-600 mt-1">{currentStudent.passedCourses.filter(c => c.grade !== 'Fail').length} passed</p>
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-2">Total Courses</p>
-                                </div>
-                            </div>
-
-                            {/* Progress Bar */}
-                            <div>
-                                <div className="flex justify-between text-sm mb-2">
-                                    <span className="text-gray-700 font-semibold">Degree Progress</span>
-                                    <span className="text-gray-500 font-medium">{progressPercent}%</span>
-                                </div>
-                                <div className="h-4 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-700 ease-out bg-university`}
-                                        style={{ width: `${progressPercent}%` }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* ===== Passed Courses Tab ===== */}
                     {profileTab === 'courses' && (
@@ -365,9 +358,17 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                                         </h4>
                                                         <div className="flex gap-2 items-center">
                                                             <button
+                                                                onClick={() => handleDeletePlan(plan.id)}
+                                                                className={`text-xs font-bold px-3 py-1 rounded-lg transition ${isApproved ? 'text-red-700 bg-red-100 hover:bg-red-200' : 'text-red-700 bg-red-100 hover:bg-red-200'}`}
+                                                            >
+                                                                🗑️ Delete
+                                                            </button>
+                                                            <button
                                                                 onClick={() => {
                                                                     setEditingPlan(plan);
-                                                                    setPlanSemester(plan.semester);
+                                                                    const [term, year] = plan.semester.split(' ');
+                                                                    setPlanTerm(term || 'Fall');
+                                                                    setPlanYear(year ? parseInt(year, 10) : new Date().getFullYear());
                                                                     setShowPlanEditor(true);
                                                                 }}
                                                                 className={`text-xs font-bold px-3 py-1 rounded-lg transition ${isApproved ? 'text-green-700 bg-green-200/50 hover:bg-green-300/50' : 'text-amber-700 bg-amber-200/50 hover:bg-amber-300/50'}`}
@@ -395,6 +396,7 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                                             return (
                                                                 <div key={code} className={`px-2 py-1 bg-white rounded-lg border shadow-sm flex items-center gap-1 ${isApproved ? 'border-green-100' : 'border-amber-200'}`}>
                                                                     <span className="font-mono font-bold text-gray-800 text-xs">{code}</span>
+                                                                    {course && <span className="text-xs font-medium text-gray-600 truncate max-w-[150px]">{course.name}</span>}
                                                                     {course && <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1 py-0.5 rounded">{course.credits}cr</span>}
                                                                 </div>
                                                             );
@@ -411,18 +413,23 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                     <div className="flex flex-wrap items-end gap-4 mb-4">
                                         <div className="flex-1 min-w-[250px]">
                                             <label className="block text-xs font-bold uppercase tracking-wider text-university-800/80 mb-1.5 ml-1">Semester Target</label>
-                                            <select
-                                                value={planSemester}
-                                                onChange={e => setPlanSemester(e.target.value)}
-                                                className="w-full bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
-                                            >
-                                                <option value="Fall 2026">Fall 2026</option>
-                                                <option value="Spring 2027">Spring 2027</option>
-                                                <option value="Fall 2027">Fall 2027</option>
-                                                <option value="Spring 2028">Spring 2028</option>
-                                                <option value="Fall 2028">Fall 2028</option>
-                                                <option value="Spring 2029">Spring 2029</option>
-                                            </select>
+                                            <div className="flex gap-2">
+                                                <select
+                                                    value={planTerm}
+                                                    onChange={e => setPlanTerm(e.target.value)}
+                                                    className="w-1/2 bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
+                                                >
+                                                    <option value="Fall">Fall</option>
+                                                    <option value="Spring">Spring</option>
+                                                    <option value="Summer">Summer</option>
+                                                </select>
+                                                <input
+                                                    type="number"
+                                                    value={planYear}
+                                                    onChange={e => setPlanYear(parseInt(e.target.value, 10))}
+                                                    className="w-1/2 bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
+                                                />
+                                            </div>
                                         </div>
                                         <button
                                             onClick={handleGenerateRoadmap}
@@ -460,6 +467,7 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                                     return (
                                                         <div key={code} className="px-3 py-1.5 bg-white rounded-xl border border-university-100 shadow-sm flex items-center gap-1.5">
                                                             <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
+                                                            {course && <span className="text-sm font-medium text-gray-600 truncate max-w-[200px]">{course.name}</span>}
                                                             {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
                                                         </div>
                                                     );
