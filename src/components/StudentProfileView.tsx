@@ -343,9 +343,79 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                     </h3>
                                 </div>
 
+                                <div className="pb-5 mb-6 border-b border-university/10">
+                                    <h4 className="text-sm font-bold text-university-800 uppercase tracking-wider mb-4">Generate New Plan</h4>
+                                    <div className="flex flex-wrap items-end gap-4 mb-4">
+                                        <div className="flex-1 min-w-[250px]">
+                                            <label className="block text-xs font-bold uppercase tracking-wider text-university-800/80 mb-1.5 ml-1">Semester Target</label>
+                                            <div className="flex gap-2">
+                                                <select
+                                                    value={planTerm}
+                                                    onChange={e => setPlanTerm(e.target.value)}
+                                                    className="w-1/2 bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
+                                                >
+                                                    <option value="Fall">Fall</option>
+                                                    <option value="Spring">Spring</option>
+                                                    <option value="Summer">Summer</option>
+                                                </select>
+                                                <input
+                                                    type="number"
+                                                    value={planYear}
+                                                    onChange={e => setPlanYear(parseInt(e.target.value, 10))}
+                                                    className="w-1/2 bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={handleGenerateRoadmap}
+                                            disabled={currentStudent.isBlocked}
+                                            className="px-5 py-2.5 bg-[#0160C9] text-white rounded-xl hover:bg-blue-700 font-bold text-sm shadow-md shadow-blue-900/10 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Auto-Generate Plan
+                                        </button>
+                                    </div>
+
+                                    {roadmap && (
+                                        <div className="mt-6 pt-5 border-t border-university/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
+                                                <h4 className="text-base font-bold text-university-900">
+                                                    Suggested Roadmap <span className="text-sm font-medium text-university-600 bg-white px-2 py-0.5 rounded-lg border border-university/20 ml-2">{roadmap.length} courses • {roadmapCredits} credits</span>
+                                                </h4>
+                                                <div className="flex gap-2.5">
+                                                    <button
+                                                        onClick={() => setShowPlanEditor(true)}
+                                                        className="px-4 py-2 text-sm bg-white border border-university-200 text-university-700 rounded-xl hover:bg-university-50 font-semibold transition-all shadow-sm"
+                                                    >
+                                                        ✏️ Edit Plan
+                                                    </button>
+                                                    <button
+                                                        onClick={handleApprovePlan}
+                                                        className="px-5 py-2 text-sm bg-green-600 border border-green-700 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md flex items-center gap-1.5"
+                                                    >
+                                                        <span>✅</span> Save as Approved
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2.5">
+                                                {roadmap.map(code => {
+                                                    const course = courseLookup(code);
+                                                    return (
+                                                        <div key={code} className="px-3 py-1.5 bg-white rounded-xl border border-university-100 shadow-sm flex items-center gap-1.5">
+                                                            <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
+                                                            {course && <span className="text-sm font-medium text-gray-600 truncate max-w-[200px]">{course.name}</span>}
+                                                            {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Existing Plans History */}
                                 {(currentStudent.plans?.length || 0) > 0 && (
                                     <div className="space-y-4 mb-8">
+                                        <h4 className="text-sm font-bold text-university-800 uppercase tracking-wider mb-4">Existing Plans History</h4>
                                         {currentStudent.plans!.sort((a, b) => b.semester.localeCompare(a.semester)).map(plan => {
                                             const isApproved = plan.status === 'approved';
                                             return (
@@ -407,75 +477,6 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                                         })}
                                     </div>
                                 )}
-
-                                <div className={`pt-5 ${(currentStudent.plans?.length || 0) > 0 ? 'border-t border-university/10' : ''}`}>
-                                    <h4 className="text-sm font-bold text-university-800 uppercase tracking-wider mb-4">Generate New Plan</h4>
-                                    <div className="flex flex-wrap items-end gap-4 mb-4">
-                                        <div className="flex-1 min-w-[250px]">
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-university-800/80 mb-1.5 ml-1">Semester Target</label>
-                                            <div className="flex gap-2">
-                                                <select
-                                                    value={planTerm}
-                                                    onChange={e => setPlanTerm(e.target.value)}
-                                                    className="w-1/2 bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
-                                                >
-                                                    <option value="Fall">Fall</option>
-                                                    <option value="Spring">Spring</option>
-                                                    <option value="Summer">Summer</option>
-                                                </select>
-                                                <input
-                                                    type="number"
-                                                    value={planYear}
-                                                    onChange={e => setPlanYear(parseInt(e.target.value, 10))}
-                                                    className="w-1/2 bg-white border border-university-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all cursor-pointer"
-                                                />
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={handleGenerateRoadmap}
-                                            disabled={currentStudent.isBlocked}
-                                            className="px-5 py-2.5 bg-[#0160C9] text-white rounded-xl hover:bg-blue-700 font-bold text-sm shadow-md shadow-blue-900/10 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <span>⚡</span> Auto-Generate Plan
-                                        </button>
-                                    </div>
-
-                                    {roadmap && (
-                                        <div className="mt-6 pt-5 border-t border-university/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-                                                <h4 className="text-base font-bold text-university-900">
-                                                    Suggested Roadmap <span className="text-sm font-medium text-university-600 bg-white px-2 py-0.5 rounded-lg border border-university/20 ml-2">{roadmap.length} courses • {roadmapCredits} credits</span>
-                                                </h4>
-                                                <div className="flex gap-2.5">
-                                                    <button
-                                                        onClick={() => setShowPlanEditor(true)}
-                                                        className="px-4 py-2 text-sm bg-white border border-university-200 text-university-700 rounded-xl hover:bg-university-50 font-semibold transition-all shadow-sm"
-                                                    >
-                                                        ✏️ Edit Plan
-                                                    </button>
-                                                    <button
-                                                        onClick={handleApprovePlan}
-                                                        className="px-5 py-2 text-sm bg-green-600 border border-green-700 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md flex items-center gap-1.5"
-                                                    >
-                                                        <span>✅</span> Save as Approved
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2.5">
-                                                {roadmap.map(code => {
-                                                    const course = courseLookup(code);
-                                                    return (
-                                                        <div key={code} className="px-3 py-1.5 bg-white rounded-xl border border-university-100 shadow-sm flex items-center gap-1.5">
-                                                            <span className="font-mono font-bold text-gray-800 text-sm">{code}</span>
-                                                            {course && <span className="text-sm font-medium text-gray-600 truncate max-w-[200px]">{course.name}</span>}
-                                                            {course && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">{course.credits}cr</span>}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
                             </div>
                         </div>
                     )}
@@ -592,6 +593,6 @@ export function StudentProfileView({ student, onClose, onDeleted, onUpdated }: S
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

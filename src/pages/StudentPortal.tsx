@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Course, Major, CategoryType } from '../types';
 import {
     Ticket,
@@ -16,7 +16,7 @@ import { PrerequisiteGraph } from '../components/PrerequisiteGraph';
 import { useLanguage } from '../context/LanguageContext';
 
 
-type ViewMode = 'login' | 'register' | 'dashboard' | 'courses' | 'ticket';
+type ViewMode = 'login' | 'register' | 'dashboard' | 'courses' | 'ticket' | 'plans';
 
 // Helper to calculate progress with mandatory/elective breakdown
 const calculateCategoryProgress = (category: CategoryType, passedCourses: string[], courses: Course[]) => {
@@ -156,11 +156,25 @@ function StudentPortal() {
     const gpaClass = getGPAClassification(computedGPA);
     const passedCount = authenticatedStudent ? authenticatedStudent.passedCourses.filter(c => c.grade !== 'Fail').length : 0;
 
+    // Auth Persistence
+    useEffect(() => {
+        const savedId = sessionStorage.getItem('portal-auth');
+        if (savedId) {
+            const student = getStudentByUniversityId(savedId);
+            if (student) {
+                setAuthenticatedStudent(student);
+                setStudentTickets(getTicketsByStudentId(student.universityId));
+                setViewMode('dashboard');
+            }
+        }
+    }, [getStudentByUniversityId]);
+
     const handleLogin = () => {
         const student = getStudentByUniversityId(authUniversityId.trim());
         if (!student) { setAuthError('No student found with this University ID.'); return; }
         if (student.nationalId !== authNationalId.trim()) { setAuthError('National ID does not match.'); return; }
         setAuthenticatedStudent(student);
+        sessionStorage.setItem('portal-auth', student.universityId);
         setStudentTickets(getTicketsByStudentId(student.universityId));
         setViewMode('dashboard');
     };
@@ -192,6 +206,7 @@ function StudentPortal() {
         if (!success) { setRegErrors({ general: 'A student with this National ID already exists. Please login instead.' }); return; }
 
         setAuthenticatedStudent(profile);
+        sessionStorage.setItem('portal-auth', profile.universityId);
         setStudentTickets([]);
         setViewMode('dashboard');
     };
@@ -276,13 +291,17 @@ function StudentPortal() {
                             className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'dashboard' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
                             <span>📊</span> Dashboard
                         </button>
+                        <button onClick={() => setViewMode('plans')}
+                            className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'plans' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
+                            <span>🗓️</span> Plans
+                        </button>
                         <button onClick={() => setViewMode('courses')}
                             className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'courses' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
                             <span>📚</span> Courses
                         </button>
                         <button onClick={() => { setTicketSubmitted(null); setViewMode('ticket'); }}
                             className={`px-5 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-2 ${viewMode === 'ticket' ? 'bg-[#0160C9] text-white shadow-md shadow-[#0160C9]/30' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
-                            <span>🎫</span> Submit Ticket
+                            <span>🎫</span> Tickets
                         </button>
                         <div className="flex-1" />
                         <div className="flex items-center gap-4 pl-4 border-l">
@@ -299,7 +318,7 @@ function StudentPortal() {
                                     <span className="block text-xs font-medium text-university-600">{authenticatedStudent.universityId}</span>
                                 </div>
                             </div>
-                            <button onClick={() => { setAuthenticatedStudent(null); setViewMode('login'); }}
+                            <button onClick={() => { setAuthenticatedStudent(null); sessionStorage.removeItem('portal-auth'); setViewMode('login'); }}
                                 className="px-4 py-2 text-xs font-bold bg-red-50 text-red-600 border border-red-100 rounded-lg hover:bg-red-100 hover:text-red-700 transition">
                                 Sign Out
                             </button>
@@ -623,7 +642,7 @@ function StudentPortal() {
 
                 {/* ============ DASHBOARD ============ */}
                 {viewMode === 'dashboard' && authenticatedStudent && (
-                    <div className="max-w-4xl mx-auto space-y-6">
+                    <div className="max-w-5xl mx-auto space-y-6">
                         {/* Welcome Header */}
                         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 flex items-center gap-6 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-university/5 rounded-full -translate-y-1/2 translate-x-1/3 z-0 blur-3xl"></div>
@@ -650,10 +669,10 @@ function StudentPortal() {
 
                         {/* Academic Status */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="md:col-span-2 bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
+                            <div className="md:col-span-3 bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
                                 <h3 className="text-sm font-bold text-gray-800 mb-6 uppercase tracking-wider flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-university"></span>
-                                    Academic Standing
+                                    Academic Status
                                 </h3>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="bg-university/5 border border-university/10 rounded-2xl p-5 text-center flex flex-col justify-center items-center">
@@ -683,127 +702,66 @@ function StudentPortal() {
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="space-y-6">
-                                {/* Approved Plans (from admin) */}
-                                {authenticatedStudent.isBlocked ? (
-                                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center h-full flex flex-col justify-center items-center">
-                                        <div className="w-16 h-16 bg-red-50 border-2 border-dashed border-red-200 rounded-2xl flex items-center justify-center mb-4"><span className="text-2xl opacity-50">🚫</span></div>
-                                        <h3 className="text-base font-bold text-gray-800 mb-2 text-red-600">Plan Hidden</h3>
-                                        <p className="text-sm font-medium text-gray-500">Your academic plan is currently hidden because your account is restricted. Please contact your academic advisor.</p>
-                                    </div>
-                                ) : authenticatedStudent.plans && authenticatedStudent.plans.filter(p => p.status === 'approved').length > 0 ? (
-                                    <div className="space-y-6">
-                                        {authenticatedStudent.plans.filter(p => p.status === 'approved')
-                                            .sort((a, b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime())
-                                            .map(plan => (
-                                                <div key={plan.id} className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 h-full flex flex-col">
-                                                    <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-4">
-                                                        <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
-                                                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                                            Approved Plan
-                                                        </h3>
-                                                        <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">{plan.semester}</span>
-                                                    </div>
-                                                    <div className="bg-green-50/50 border border-green-100 rounded-xl p-4 mb-4 text-center">
-                                                        <div className="text-2xl font-extrabold text-green-700">{plan.credits} <span className="text-sm font-bold text-gray-500">Cr</span></div>
-                                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-1">{plan.courses.length} Courses</div>
-                                                    </div>
-                                                    <div className="flex-1 overflow-y-auto pr-1">
-                                                        <ul className="space-y-2">
-                                                            {plan.courses.map(code => {
-                                                                const course = courses.find(c => c.code === code);
-                                                                return (
-                                                                    <li key={code} className="flex justify-between items-center group">
-                                                                        <div>
-                                                                            <span className="font-bold text-sm text-gray-900 group-hover:text-university transition-colors">{code}</span>
-                                                                        </div>
-                                                                        <span className="font-bold text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{course?.credits || '?'}</span>
-                                                                    </li>
-                                                                );
-                                                            })}
-                                                        </ul>
-                                                    </div>
-                                                    <p className="text-[10px] font-bold text-gray-400 mt-4 text-center uppercase tracking-widest pt-4 border-t border-gray-50">Approved: {plan.approvedAt ? new Date(plan.approvedAt).toLocaleDateString() : 'Unknown'}</p>
-                                                </div>
-                                            ))}
-                                    </div>
-                                ) : (
-                                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center h-full flex flex-col justify-center items-center">
-                                        <div className="w-16 h-16 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center mb-4"><span className="text-2xl opacity-50">📋</span></div>
-                                        <h3 className="text-base font-bold text-gray-800 mb-2">No Plan Available</h3>
-                                        <p className="text-sm font-medium text-gray-500">Your academic advisor will generate your semester plan soon.</p>
-                                    </div>
-                                )}
-                            </div>
                         </div>
+                    </div>
+                )}
 
-                        {/* Ticket History */}
-                        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
-                            <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                    Support Tickets
-                                </h3>
-                                <button onClick={() => { setTicketSubmitted(null); setViewMode('ticket'); }} className="text-xs font-bold text-university hover:text-university-700 bg-university/5 hover:bg-university/10 px-3 py-1.5 rounded-lg transition-colors">+ New Ticket</button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                                    {studentTickets.length > 0 ? (
-                                        studentTickets.map(ticket => (
-                                            <div key={ticket.id} className="border border-gray-100 rounded-2xl p-5 hover:bg-gray-50 transition shadow-sm group cursor-pointer" onClick={() => setLookupId(ticket.id)}>
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="font-mono text-xs font-bold text-gray-500 group-hover:text-university transition-colors">{ticket.id}</span>
-                                                    <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-bold ${ticket.status === 'resolved' ? 'bg-green-50 ztext-green-600 border border-green-200' : ticket.status === 'in_progress' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
-                                                        {ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Resolved'}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm font-bold text-gray-900 leading-tight mb-1">{ticket.subject}</p>
-                                                <p className="text-xs text-gray-500 line-clamp-2">{ticket.message}</p>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                                            <p className="text-sm font-bold text-gray-400">No active tickets.</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Ticket Lookup */}
-                                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 sticky top-4">
-                                    <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Track Ticket Status</h4>
-                                    <div className="space-y-3">
-                                        <input type="text" value={lookupId} onChange={e => { setLookupId(e.target.value); setLookupResult(undefined); }}
-                                            placeholder="Ticket ID (e.g. TKT-...)"
-                                            className="w-full border border-gray-200 bg-white rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-university/40 focus:border-university outline-none transition-all" />
-                                        <button onClick={handleLookupTicket} disabled={!lookupId.trim()}
-                                            className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-bold shadow-md shadow-gray-900/20 hover:bg-gray-800 transition disabled:opacity-50">Look Up</button>
-                                    </div>
-                                    {lookupResult && (
-                                        <div className="bg-white border border-gray-200 rounded-xl p-5 mt-4 shadow-sm animate-in fade-in slide-in-from-bottom-2">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <p className="font-mono font-bold text-sm text-university">{lookupResult.id}</p>
-                                                <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-bold ${lookupResult.status === 'resolved' ? 'bg-green-50 text-green-600 border border-green-200' : lookupResult.status === 'in_progress' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
-                                                    {lookupResult.status.replace('_', ' ')}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm font-bold text-gray-900 mb-1">{lookupResult.subject}</p>
-                                            <p className="text-xs font-medium text-gray-500 mb-3">{lookupResult.message}</p>
-
-                                            {lookupResult.adminReply && (
-                                                <div className="bg-university/5 rounded-xl p-3 border border-university/10">
-                                                    <p className="text-[10px] font-bold text-university-700 uppercase tracking-widest mb-1">Advisor Reply:</p>
-                                                    <p className="text-sm font-medium text-gray-800">{lookupResult.adminReply}</p>
-                                                </div>
-                                            )}
-                                            <p className="text-[10px] font-bold text-gray-400 mt-3 pt-3 border-t border-gray-100 uppercase tracking-widest">{new Date(lookupResult.createdAt).toLocaleString()}</p>
-                                        </div>
-                                    )}
-                                    {lookupId && lookupResult === null && <p className="text-center text-xs font-bold text-red-500 bg-red-50 py-3 rounded-xl mt-4 border border-red-100">No ticket found with that number.</p>}
-                                </div>
-                            </div>
+                {/* ============ PLANS ============ */}
+                {viewMode === 'plans' && authenticatedStudent && (
+                    <div className="max-w-6xl mx-auto">
+                        <div className="mb-8 border-b border-gray-100 pb-4">
+                            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Approved Academic Plans</h2>
+                            <p className="text-sm font-bold text-gray-500 uppercase tracking-wide mt-1">Review your advisor's recommended paths</p>
                         </div>
+                        {authenticatedStudent.isBlocked ? (
+                            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center flex flex-col justify-center items-center">
+                                <div className="w-16 h-16 bg-red-50 border-2 border-dashed border-red-200 rounded-2xl flex items-center justify-center mb-4"><span className="text-2xl opacity-50">🚫</span></div>
+                                <h3 className="text-base font-bold text-gray-800 mb-2 text-red-600">Plan Hidden</h3>
+                                <p className="text-sm font-medium text-gray-500">Your academic plan is currently hidden because your account is restricted. Please contact your academic advisor.</p>
+                            </div>
+                        ) : authenticatedStudent.plans && authenticatedStudent.plans.filter(p => p.status === 'approved').length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-4">
+                                {authenticatedStudent.plans.filter(p => p.status === 'approved')
+                                    .sort((a, b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime())
+                                    .map(plan => (
+                                        <div key={plan.id} className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 flex flex-col hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                                            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-4">
+                                                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                    Approved Plan
+                                                </h3>
+                                                <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">{plan.semester}</span>
+                                            </div>
+                                            <div className="bg-green-50/50 border border-green-100 rounded-xl p-4 mb-4 text-center">
+                                                <div className="text-2xl font-extrabold text-green-700">{plan.credits} <span className="text-sm font-bold text-gray-500">Cr</span></div>
+                                                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-1">{plan.courses.length} Courses</div>
+                                            </div>
+                                            <div className="flex-1 overflow-y-auto pr-1">
+                                                <ul className="space-y-2">
+                                                    {plan.courses.map(code => {
+                                                        const course = courses.find(c => c.code === code);
+                                                        return (
+                                                            <li key={code} className="flex justify-between items-center group">
+                                                                <div>
+                                                                    <span className="font-bold text-sm text-gray-900 group-hover:text-university transition-colors">{code}</span>
+                                                                </div>
+                                                                <span className="font-bold text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{course?.credits || '?'}</span>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-gray-400 mt-4 text-center uppercase tracking-widest pt-4 border-t border-gray-50">Approved: {plan.approvedAt ? new Date(plan.approvedAt).toLocaleDateString() : 'Unknown'}</p>
+                                        </div>
+                                    ))}
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center flex flex-col justify-center items-center">
+                                <div className="w-16 h-16 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center mb-4"><span className="text-2xl opacity-50">📋</span></div>
+                                <h3 className="text-base font-bold text-gray-800 mb-2">No Plan Available</h3>
+                                <p className="text-sm font-medium text-gray-500">Your academic advisor will generate your semester plan soon.</p>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -918,10 +876,74 @@ function StudentPortal() {
                                 })}
 
                                 {studentMajor === 'General' && (
-                                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-                                        <h3 className="text-base font-medium text-gray-400 mb-1">Major Requirements</h3>
-                                        <p className="text-lg font-bold text-gray-300">0 / 57 Cr</p>
-                                        <p className="text-xs text-gray-400 mt-1">Specialize in CS, IT, or IS to see major-specific courses</p>
+                                    <>
+                                        <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                            <h3 className="text-base font-medium text-gray-400 mb-1">Major Requirements</h3>
+                                            <p className="text-lg font-bold text-gray-300">0 / 57 Cr</p>
+                                            <p className="text-xs text-gray-400 mt-1">Specialize in CS, IT, or IS to see major-specific courses</p>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                                <h3 className="text-base font-medium text-gray-400 mb-1">Field Training</h3>
+                                                <p className="text-lg font-bold text-gray-300">0 / 3 Cr</p>
+                                                <p className="text-xs text-gray-400 mt-1">Requires specialization</p>
+                                            </div>
+                                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                                <h3 className="text-base font-medium text-gray-400 mb-1">Graduation Project</h3>
+                                                <p className="text-lg font-bold text-gray-300">0 / 4 Cr</p>
+                                                <p className="text-xs text-gray-400 mt-1">Requires specialization</p>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {studentMajor !== 'General' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-100">
+                                        {/* Field Training (TRN400) */}
+                                        <div className={`border rounded-2xl p-6 transition-all shadow-sm ${passedCodesSet.has('TRN400') ? 'bg-emerald-50 border-emerald-100 shadow-emerald-100/20' : 'bg-white border-gray-200'}`}>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner ${passedCodesSet.has('TRN400') ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-50 text-orange-500 border border-orange-100'}`}>
+                                                        {passedCodesSet.has('TRN400') ? '✓' : '⚙️'}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-base font-extrabold text-gray-900 leading-tight">Field Training</h3>
+                                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">TRN400 • 3 Cr</p>
+                                                    </div>
+                                                </div>
+                                                <span className={`px-4 py-1.5 text-xs font-bold rounded-full border ${passedCodesSet.has('TRN400') ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
+                                                    {passedCodesSet.has('TRN400') ? 'Completed' : 'Pending'}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-medium text-gray-500 leading-relaxed">
+                                                {passedCodesSet.has('TRN400')
+                                                    ? 'You have successfully completed your mandatory field training requirements.'
+                                                    : 'Field training must be completed before graduation. Coordinate with your advisor.'}
+                                            </p>
+                                        </div>
+
+                                        {/* Graduation Project (PRJ400) */}
+                                        <div className={`border rounded-2xl p-6 transition-all shadow-sm ${passedCodesSet.has('PRJ400') ? 'bg-emerald-50 border-emerald-100 shadow-emerald-100/20' : 'bg-white border-gray-200'}`}>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner ${passedCodesSet.has('PRJ400') ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-500 border border-blue-100'}`}>
+                                                        {passedCodesSet.has('PRJ400') ? '✓' : '🎓'}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-base font-extrabold text-gray-900 leading-tight">Graduation Project</h3>
+                                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">PRJ400 • 4 Cr</p>
+                                                    </div>
+                                                </div>
+                                                <span className={`px-4 py-1.5 text-xs font-bold rounded-full border ${passedCodesSet.has('PRJ400') ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                                                    {passedCodesSet.has('PRJ400') ? 'Completed' : 'Pending'}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-medium text-gray-500 leading-relaxed">
+                                                {passedCodesSet.has('PRJ400')
+                                                    ? 'Your graduation project has been successfully defended and graded.'
+                                                    : 'Your capstone project is required for graduation. Typically taken in Year 4.'}
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -929,75 +951,143 @@ function StudentPortal() {
                     </div>
                 )}
 
-                {/* ============ SUBMIT TICKET ============ */}
+                {/* ============ TICKETS ============ */}
                 {viewMode === 'ticket' && authenticatedStudent && (
-                    <div className="max-w-xl mx-auto">
-                        {ticketSubmitted ? (
-                            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-10 text-center animate-in zoom-in-95 duration-300">
-                                <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-green-100 shadow-sm"><span className="text-4xl">✅</span></div>
-                                <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Ticket Submitted</h2>
-                                <p className="text-sm font-medium text-gray-500 mb-6">Your request is in our system. Use the tracking ID below if needed.</p>
-                                <div className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-100">
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Tracking Number</p>
-                                    <p className="text-xl font-mono font-bold text-university">{ticketSubmitted.id}</p>
+                    <div className="max-w-6xl mx-auto">
+                        <div className="mb-8 border-b border-gray-100 pb-4">
+                            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Support Tickets</h2>
+                            <p className="text-sm font-bold text-gray-500 uppercase tracking-wide mt-1">Reach out to your academic advisor or track open requests</p>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                            {/* Ticket History */}
+                            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
+                                <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        Ticket History
+                                    </h3>
                                 </div>
-                                <div className="flex gap-4 justify-center">
-                                    <button onClick={() => setViewMode('dashboard')} className="px-6 py-3.5 bg-[#0160C9] text-white rounded-xl font-bold hover:bg-blue-800 transition-all shadow-md text-sm">Dashboard</button>
-                                    <button onClick={() => setTicketSubmitted(null)} className="px-6 py-3.5 border border-gray-200 bg-white text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all text-sm">Submit Another</button>
+                                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                                    {studentTickets.length > 0 ? (
+                                        studentTickets.map(ticket => (
+                                            <div key={ticket.id} className="border border-gray-100 rounded-2xl p-5 hover:bg-gray-50 transition shadow-sm group cursor-pointer" onClick={() => setLookupId(ticket.id)}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="font-mono text-xs font-bold text-gray-500 group-hover:text-university transition-colors">{ticket.id}</span>
+                                                    <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-bold ${ticket.status === 'resolved' ? 'bg-green-50 text-green-600 border border-green-200' : ticket.status === 'in_progress' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+                                                        {ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Resolved'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm font-bold text-gray-900 leading-tight mb-1">{ticket.subject}</p>
+                                                <p className="text-xs text-gray-500 line-clamp-2">{ticket.message}</p>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                            <p className="text-sm font-bold text-gray-400">No active tickets.</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Ticket Lookup */}
+                                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 sticky top-4">
+                                    <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Track Ticket Status</h4>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={lookupId} onChange={e => { setLookupId(e.target.value); setLookupResult(undefined); }}
+                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 focus:ring-university/40 outline-none transition-all placeholder-gray-400"
+                                            placeholder="Ticket ID..." />
+                                        <button onClick={handleLookupTicket} className="px-4 py-2.5 bg-university text-white rounded-xl font-bold hover:bg-university-700 transition shadow-sm text-sm">Find</button>
+                                    </div>
+                                    {lookupId && lookupResult && (
+                                        <div className="mt-6 pt-6 border-t border-gray-200 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <p className="font-mono font-bold text-sm text-university">{lookupResult.id}</p>
+                                                <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-bold ${lookupResult.status === 'resolved' ? 'bg-green-50 text-green-600 border border-green-200' : lookupResult.status === 'in_progress' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+                                                    {lookupResult.status.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-bold text-gray-900 mb-1">{lookupResult.subject}</p>
+                                            <p className="text-xs font-medium text-gray-500 mb-3">{lookupResult.message}</p>
+                                            {lookupResult.adminReply && (
+                                                <div className="bg-university/5 rounded-xl p-3 border border-university/10">
+                                                    <p className="text-[10px] font-bold text-university-700 uppercase tracking-widest mb-1">Advisor Reply:</p>
+                                                    <p className="text-sm font-medium text-gray-800">{lookupResult.adminReply}</p>
+                                                </div>
+                                            )}
+                                            <p className="text-[10px] font-bold text-gray-400 mt-3 pt-3 border-t border-gray-100 uppercase tracking-widest">{new Date(lookupResult.createdAt).toLocaleString()}</p>
+                                        </div>
+                                    )}
+                                    {lookupId && lookupResult === null && <p className="text-center text-xs font-bold text-red-500 bg-red-50 py-3 rounded-xl mt-4 border border-red-100">No ticket found with that number.</p>}
                                 </div>
                             </div>
-                        ) : (
-                            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-10">
-                                <div className="text-center mb-8">
-                                    <div className="w-20 h-20 bg-university/10 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 border border-university/20"><span className="text-3xl -rotate-3">💬</span></div>
-                                    <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Open a Support Ticket</h2>
-                                    <p className="text-sm font-medium text-gray-500 mt-2 uppercase tracking-wide">Contact Your Academic Advisor</p>
-                                </div>
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Subject <span className="text-red-500">*</span></label>
-                                        <input type="text" value={ticketSubject} onChange={e => { setTicketSubject(e.target.value); setTicketErrors(prev => ({ ...prev, subject: '' })); }}
-                                            className={`w-full bg-gray-50 border rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-university/40 outline-none transition-all ${ticketErrors.subject ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:border-university'}`}
-                                            placeholder="e.g., Requesting Course Substitution" />
-                                        {ticketErrors.subject && <p className="text-xs text-red-600 font-bold mt-1">{ticketErrors.subject}</p>}
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Message <span className="text-red-500">*</span></label>
-                                        <textarea value={ticketMessage} onChange={e => { setTicketMessage(e.target.value); setTicketErrors(prev => ({ ...prev, message: '' })); }}
-                                            rows={6} className={`w-full bg-gray-50 border rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-university/40 outline-none transition-all resize-none ${ticketErrors.message ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:border-university'}`}
-                                            placeholder="Please describe your situation clearly..." />
-                                        {ticketErrors.message && <p className="text-xs font-bold text-red-600 mt-1">{ticketErrors.message}</p>}
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Attachment <span className="text-gray-400 lowercase font-normal ml-1">(optional)</span></label>
-                                        <div className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${ticketFile ? 'border-university/50 bg-university/5' : 'border-gray-200 hover:border-university/30 bg-gray-50'}`}>
-                                            {ticketFile ? (
-                                                <div className="flex flex-col items-center justify-center gap-3">
-                                                    <span className="text-sm text-gray-900 font-bold">{ticketFile.name}</span>
-                                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">{(ticketFile.size / 1024).toFixed(0)} KB</span>
-                                                    <button onClick={() => setTicketFile(null)} className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition">Remove File</button>
-                                                </div>
-                                            ) : (
-                                                <label className="cursor-pointer flex flex-col items-center w-full h-full">
-                                                    <span className="text-2xl mb-2 opacity-50">📤</span>
-                                                    <div className="text-sm font-bold text-gray-600">Select File</div>
-                                                    <div className="text-xs font-medium text-gray-400 mt-1 uppercase tracking-wider">PDF or Image (Max 10 MB)</div>
-                                                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file && file.size <= 10 * 1024 * 1024) setTicketFile(file);
-                                                    }} />
-                                                </label>
-                                            )}
+
+                            {/* Submit Ticket */}
+                            <div>
+                                {ticketSubmitted ? (
+                                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-10 text-center animate-in zoom-in-95 duration-300">
+                                        <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-green-100 shadow-sm"><span className="text-4xl">✅</span></div>
+                                        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Ticket Submitted</h2>
+                                        <p className="text-sm font-medium text-gray-500 mb-6">Your request is in our system.</p>
+                                        <div className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-100">
+                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Tracking Number</p>
+                                            <p className="text-xl font-mono font-bold text-university">{ticketSubmitted.id}</p>
+                                        </div>
+                                        <div className="flex gap-4 justify-center">
+                                            <button onClick={() => setTicketSubmitted(null)} className="px-6 py-3.5 border border-gray-200 bg-white text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all text-sm">Submit Another</button>
                                         </div>
                                     </div>
-                                    <div className="pt-2">
-                                        <button onClick={handleSubmitTicket} className="w-full bg-[#0160C9] text-white py-4 rounded-xl font-bold hover:bg-blue-800 transition-all shadow-lg text-sm tracking-wide">
-                                            SUBMIT TICKET
-                                        </button>
+                                ) : (
+                                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-10">
+                                        <div className="text-center mb-8">
+                                            <div className="w-20 h-20 bg-university/10 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 border border-university/20"><span className="text-3xl -rotate-3">💬</span></div>
+                                            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Open a New Ticket</h2>
+                                        </div>
+                                        <div className="space-y-6">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Subject <span className="text-red-500">*</span></label>
+                                                <input type="text" value={ticketSubject} onChange={e => { setTicketSubject(e.target.value); setTicketErrors(prev => ({ ...prev, subject: '' })); }}
+                                                    className={`w-full bg-gray-50 border rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-university/40 outline-none transition-all ${ticketErrors.subject ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:border-university'}`}
+                                                    placeholder="e.g., Requesting Course Substitution" />
+                                                {ticketErrors.subject && <p className="text-xs text-red-600 font-bold mt-1">{ticketErrors.subject}</p>}
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Message <span className="text-red-500">*</span></label>
+                                                <textarea value={ticketMessage} onChange={e => { setTicketMessage(e.target.value); setTicketErrors(prev => ({ ...prev, message: '' })); }}
+                                                    rows={6} className={`w-full bg-gray-50 border rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-university/40 outline-none transition-all resize-none ${ticketErrors.message ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:border-university'}`}
+                                                    placeholder="Please describe your situation clearly..." />
+                                                {ticketErrors.message && <p className="text-xs font-bold text-red-600 mt-1">{ticketErrors.message}</p>}
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Attachment <span className="text-gray-400 lowercase font-normal ml-1">(optional)</span></label>
+                                                <div className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${ticketFile ? 'border-university/50 bg-university/5' : 'border-gray-200 hover:border-university/30 bg-gray-50'}`}>
+                                                    {ticketFile ? (
+                                                        <div className="flex flex-col items-center justify-center gap-3">
+                                                            <span className="text-sm text-gray-900 font-bold">{ticketFile.name}</span>
+                                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">{(ticketFile.size / 1024).toFixed(0)} KB</span>
+                                                            <button onClick={() => setTicketFile(null)} className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition">Remove File</button>
+                                                        </div>
+                                                    ) : (
+                                                        <label className="cursor-pointer flex flex-col items-center w-full h-full">
+                                                            <span className="text-2xl mb-2 opacity-50">📤</span>
+                                                            <div className="text-sm font-bold text-gray-600">Select File</div>
+                                                            <div className="text-xs font-medium text-gray-400 mt-1 uppercase tracking-wider">PDF or Image (Max 10 MB)</div>
+                                                            <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file && file.size <= 10 * 1024 * 1024) setTicketFile(file);
+                                                            }} />
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="pt-2">
+                                                <button onClick={handleSubmitTicket} className="w-full bg-[#0160C9] text-white py-4 rounded-xl font-bold hover:bg-blue-800 transition-all shadow-lg text-sm tracking-wide">
+                                                    SUBMIT TICKET
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </div>
                 )}
 
@@ -1007,7 +1097,7 @@ function StudentPortal() {
             <div className="mt-4 mb-8 flex justify-center relative z-10 w-full text-center bottom-0">
                 <a href="/admin" className="text-gray-400 hover:text-university text-xs font-bold uppercase tracking-widest transition-colors">Admin Portal</a>
             </div>
-        </div>
+        </div >
     );
 }
 

@@ -110,9 +110,10 @@ function AdminDashboard() {
     const [showStudentForm, setShowStudentForm] = useState(false);
     const [editingStudent, setEditingStudent] = useState<StudentProfile | undefined>(undefined);
     const [bulkSuccessMsg, setBulkSuccessMsg] = useState('');
+    const [courseSuccessMsg, setCourseSuccessMsg] = useState('');
     const [showBulkPlanModal, setShowBulkPlanModal] = useState(false);
     const [bulkPlanTargetYear, setBulkPlanTargetYear] = useState(new Date().getFullYear());
-    const [bulkPlanTargetSemester, setBulkPlanTargetSemester] = useState('First Semester');
+    const [bulkPlanTargetSemester, setBulkPlanTargetSemester] = useState('Fall');
 
     const courseLookupFn = (code: string) => courses.find(c => c.code === code);
 
@@ -181,8 +182,8 @@ function AdminDashboard() {
         let generatedCount = 0;
 
         // Infer term from semester string
-        const inferredTerm: Term = bulkPlanTargetSemester.toLowerCase().includes('second') ? 2 : 1;
-        const bulkPlanSemester = `${bulkPlanTargetYear} - ${bulkPlanTargetSemester}`;
+        const inferredTerm: Term = bulkPlanTargetSemester.toLowerCase().includes('spring') ? 2 : bulkPlanTargetSemester.toLowerCase().includes('summer') ? 3 : 1;
+        const bulkPlanSemester = `${bulkPlanTargetSemester} ${bulkPlanTargetYear}`;
 
         students.forEach(student => {
             if (student.isBlocked) return;
@@ -293,6 +294,10 @@ function AdminDashboard() {
         // Parse prereqs from text
         const prereqs = prereqText.split(',').map(s => s.trim()).filter(Boolean);
         addCourse({ ...newCourse, prereqs });
+
+        setCourseSuccessMsg(`Course ${newCourse.code} added successfully.`);
+        setTimeout(() => setCourseSuccessMsg(''), 5000);
+
         setNewCourse(EMPTY_COURSE as Course);
         setPrereqText('');
         setIsCreating(false);
@@ -585,8 +590,9 @@ function AdminDashboard() {
                                                     onChange={e => setBulkPlanTargetSemester(e.target.value)}
                                                     className="bg-transparent text-sm font-medium focus:outline-none px-2 py-1 cursor-pointer"
                                                 >
-                                                    <option value="First Semester">First Semester</option>
-                                                    <option value="Second Semester">Second Semester</option>
+                                                    <option value="Fall">Fall</option>
+                                                    <option value="Spring">Spring</option>
+                                                    <option value="Summer">Summer</option>
                                                 </select>
                                                 <button
                                                     onClick={handleGeneratePlansForAll}
@@ -798,6 +804,7 @@ function AdminDashboard() {
                                         <button onClick={resetToDefaults} className="px-4 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-md transition text-sm font-semibold border border-gray-200">
                                             Reset Data
                                         </button>
+                                        {courseSuccessMsg && <div className="px-4 py-2 bg-green-50 text-green-700 rounded-md transition text-sm font-bold border border-green-200 ml-auto whitespace-nowrap">{courseSuccessMsg}</div>}
                                     </div>
 
                                     {/* Create Course Modal - Enhanced with all fields */}
@@ -1073,6 +1080,7 @@ function AdminDashboard() {
                                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Cr</th>
                                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Level</th>
                                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Term</th>
+                                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Prerequisites</th>
                                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Type</th>
                                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                                                     </tr>
@@ -1105,13 +1113,26 @@ function AdminDashboard() {
                                                             <td className="px-4 py-3 text-center text-sm text-gray-600">
                                                                 T{course.term ?? '?'}
                                                             </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <div className="flex flex-wrap gap-1 justify-center max-w-[120px]">
+                                                                    {course.prereqs && course.prereqs.length > 0 ? (
+                                                                        course.prereqs.map(prereq => (
+                                                                            <span key={prereq} className="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-[10px] font-mono font-medium text-gray-600 whitespace-nowrap">
+                                                                                {prereq}
+                                                                            </span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="text-xs text-gray-400">—</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                             {/* Type column - IMPROVED: distinct styling from actions */}
                                                             <td className="px-4 py-3 text-center text-sm">
-                                                                {getDisplayType(course.code) === 'Mandatory' ? (
+                                                                {getDisplayType(course.code) === 'Mandatory' || (getDisplayType(course.code) === 'N/A' && course.requirementType === 'Mandatory') ? (
                                                                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                                                                         Mandatory
                                                                     </span>
-                                                                ) : getDisplayType(course.code) === 'Elective' ? (
+                                                                ) : getDisplayType(course.code) === 'Elective' || (getDisplayType(course.code) === 'N/A' && course.requirementType === 'Elective') ? (
                                                                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-800 border border-teal-200">
                                                                         Elective
                                                                     </span>
